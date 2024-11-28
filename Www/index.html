@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exemple de Requêtes HTTP</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="container">
+        <h1>Interface pour Requêtes HTTP</h1>
+        
+        <div class="section">
+            <button onclick="makeRequest('GET')">Envoyer une requête GET</button>
+            <button onclick="makeRequest('POST')">Envoyer une requête POST</button>
+            <button onclick="makeRequest('DELETE')">Envoyer une requête DELETE</button>
+            <button onclick="makeRequestOnNewPage('PATCH')">Envoyer une requête PATCH</button>
+            <button onclick="window.location.href='http://localhost:8081/cgi-bin/calc.py'">Appeler un CGI</button>
+        </div>
+
+        <div class="section">
+            <h2>Envoyer une requête GET avec Query-String</h2>
+            <form method="GET" action="/cgi-bin/calc.py">
+                <label for="queryParam">Paramètre :</label>
+                <input type="text" id="queryParam" name="param" placeholder="Valeur du paramètre">
+                <button type="submit">Envoyer</button>
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>Envoyer une requête POST avec Corps</h2>
+            <form method="POST" action="/cgi-bin/post.py">
+                <label for="queryParam">Paramètre :</label>
+                <input type="text" id="queryParam" name="param" placeholder="Valeur du paramètre">
+                <button type="submit">Envoyer</button>
+            </form>
+        </div>
+        
+        
+        <div class="section">
+            <h2>Uploader un fichier</h2>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <input type="file" id="fileInput" name="file">
+                <button type="button" onclick="uploadFile()">Upload</button>
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>Supprimer un fichier</h2>
+            <input type="text" id="deleteFileName" placeholder="Nom du fichier à supprimer">
+            <button onclick="deleteFile()">Supprimer le fichier</button>
+        </div>
+
+        <div id="responseOutput"></div>
+    </div>
+
+    <script>
+        function makeRequest(type) {
+            fetch(`/api/resource`, { method: type })
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('responseOutput').textContent = `Réponse de la requête ${type}: ${data}`;
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    document.getElementById('responseOutput').textContent = `Erreur lors de la requête ${type}: ${error}`;
+                });
+        }
+        function makeRequestOnNewPage(type) {
+            if (type !== 'POST' && type !== 'GET' && type !== 'DELETE') {
+                window.location.href = 'http://localhost:8081/error_pages/error501.html';
+                return; // Empêche l'exécution des lignes suivantes
+            }
+            fetch(`/api/resource`, { method: type })
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('responseOutput').textContent = `Réponse de la requête ${type}: ${data}`;
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    document.getElementById('responseOutput').textContent = `Erreur lors de la requête ${type}: ${error}`;
+                });
+        }
+
+        function uploadFile() {
+            const formData = new FormData(document.getElementById('uploadForm'));
+            fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('responseOutput').textContent = `Réponse de l'upload: ${data}`;
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                document.getElementById('responseOutput').textContent = `Erreur lors de l'upload: ${error}`;
+            });
+        }
+
+        function deleteFile() {
+            const fileName = document.getElementById('deleteFileName').value;
+            fetch(`/api/delete/${fileName}`, { method: 'DELETE' })
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('responseOutput').textContent = `Réponse de la suppression: ${data}`;
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    document.getElementById('responseOutput').textContent = `Erreur lors de la suppression: ${error}`;
+                });
+        }
+    </script>
+
+</body>
+</html>
