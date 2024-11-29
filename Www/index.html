@@ -29,6 +29,47 @@
         </div>
 
         <div class="section">
+            <h2>Envoyer une requête PATCH invalide</h2>
+            <button id="sendInvalidPatch">Envoyer une requête PATCH invalide</button>
+        </div>
+        
+        <script>
+            /**
+             * Envoie une requête PATCH invalide au serveur et remplace le contenu de la page actuelle.
+             */
+            document.getElementById("sendInvalidPatch").addEventListener("click", () => {
+                fetch("/error_pages/error501.html", {
+                    method: 'PATCH', // Définit la méthode PATCH.
+                    body: new URLSearchParams({ param: "Valeur de test" }), // Données de test dans la requête.
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded', // En-tête approprié.
+                    },
+                })
+                    .then((response) => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        return response.text(); // Lit la réponse comme texte HTML.
+                    })
+                    .then((data) => {
+                        document.open(); // Prépare la page actuelle pour un nouveau contenu.
+                        document.write(data); // Insère directement le contenu HTML reçu.
+                        document.close(); // Termine l'écriture.
+                    })
+                    .catch((error) => {
+                        // Affiche une page d'erreur simple si la requête échoue.
+                        document.open();
+                        document.write(`
+                            <h1>Erreur lors de la requête :</h1>
+                            <p>${error.message}</p>
+                        `);
+                        document.close();
+                    });
+            });
+        </script>
+        
+
+        <div class="section">
             <h2>Envoyer une requête POST avec Corps</h2>
             <form method="POST" action="/cgi-bin/post.py">
                 <label for="queryParam">Paramètre :</label>

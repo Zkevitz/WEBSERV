@@ -45,7 +45,7 @@ private:
     std::string getFilePath(const std::string& request_path); // Gets the file path based on the request
     void serveFile(int client_fd, const std::string& file_path, size_t pos); // Serves the requested file
     std::string getContentType(const std::string& file_path); // Gets the content type based on the file extension
-    void send404(int client_fd); // Sends a 404 Not Found response
+    void sendError(int client_fd, std::string err_code); // Sends all error_page
     void handlePost(int client_fd, const std::string& request, const std::string& path, size_t request_length, std::vector<unsigned char> buffer);
     void handleDelete(int client_fd, const std::string& file_path);
     void sendInvalidUploadResponse(int client_fd);

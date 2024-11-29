@@ -13,6 +13,7 @@ class Request
         std::string connexion;
         std::string content_type;
         std::string content_length;
+        std::string http_code;
         std::string body;
         bool cgi_state;
         size_t serv_fd;
