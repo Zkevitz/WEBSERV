@@ -1,7 +1,7 @@
+#include "../include/Webserv.hpp"
 #include "../include/Config.hpp"
 #include "../include/Server.hpp"
 #include "../include/Msg.hpp"
-#include "../include/Webserv.hpp"
 #include <iostream>
 #include <vector>
 #include <csignal>

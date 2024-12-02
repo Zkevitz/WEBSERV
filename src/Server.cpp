@@ -80,7 +80,6 @@ void    Server::Check_TimeOut()
 void    Server::close_connexion(int client_fd, size_t pos)
 {
    //std::cout << "size of client = " << all_clien
-   printf("yo1\n");
     if(std::find(all_client_fd.begin(), all_client_fd.end(), client_fd) != all_client_fd.end())
     {
         Msg::logMsg(DARK_GREY, CONSOLE_OUTPUT, "Connexion with client : %d closed", client_fd);
@@ -91,11 +90,31 @@ void    Server::close_connexion(int client_fd, size_t pos)
         close(client_fd);
     }
 }
-std::string init_cgi_param(std::string str, Request Req)
+std::string Server::read_cgi_output(int client_fd)
 {
-    Cgi Cgi(str, Req.method, Req);
-    std::string Cgi_rep = Cgi.exec_cgi();
-    return(Cgi_rep);
+    int child_status;
+    std::string content;
+    int read_fd = Reqmap[client_fd].piped_fd[0];
+
+    char cgi_buffer[1024];
+    ssize_t bytes_read;
+    while ((bytes_read = read(read_fd, cgi_buffer, sizeof(cgi_buffer) - 1)) > 0) {
+        cgi_buffer[bytes_read] = '\0'; // Null-terminate the string
+        std::cout << cgi_buffer << std::endl;
+        content += cgi_buffer;
+    }
+    wait(&child_status);
+    return(content);
+}
+std::string Server::init_cgi_param(std::string str, Request Req)
+{
+    Cgi cgi_ = Cgi(str, Req.method, Req);
+
+    cgi_.exec_cgi();
+    int read_fd = Req.piped_fd[0];
+    add_client_to_poll(read_fd);
+    Req.cgi_state = 2;
+    return("");
 }
 
 bool Server::makeNonBlocking() {
@@ -178,7 +197,8 @@ void Server::acceptConnections() {
         {
             int fd = poll_fds[i].fd;
             //std::cout << "THIS IS MY FD ; " << fd << std::endl;
-            Msg::logMsg(RED, FILE_OUTPUT, "Revent for fd : %d  = %d and ERRNO = %d ", fd, poll_fds[i].revents, strerror(errno));
+
+            Msg::logMsg(RED, CONSOLE_OUTPUT, "Revent for fd : %d  = %d and ERRNO = %d ", fd, poll_fds[i].revents, strerror(errno));
             if (poll_fds[i].revents & POLLHUP)
             {
                 std::cout << "close by POLLHUP" << std::endl;
@@ -226,33 +246,11 @@ void Server::acceptConnections() {
     for (size_t i = 0; i < all_serv_fd.size(); i++)
         close(this->all_serv_fd[i]);
 }
-std::vector<unsigned char> Server::receiveData(int sockfd) {
 
-    const size_t bufferSize = 10000;
-    std::vector<unsigned char> data;
-    unsigned char buffer[bufferSize];
-
-    ssize_t bytesRead;
-    while ((bytesRead = recv(sockfd, buffer, bufferSize, 0)) > 0)
-        data.insert(data.end(), buffer, buffer + bytesRead);
-    // if (bytesRead == -1)
-    // {
-    //     std::cout << "ici j'ai un probleme" << std::endl;
-    //     close_connexion(sockfd, sockfd - all_serv_fd.size() - 1);
-    //     return data;
-    // }
-    Msg::logMsg(RED, CONSOLE_OUTPUT, "read return %d bytes_read\n", bytesRead);
-    if (bytesRead == 0)
-        close_connexion(sockfd, sockfd - all_serv_fd.size() - 1);
-    return data;
-}
 void Server::readrequest(int client_fd, size_t pos) {
 
     (void)pos;
     printf("1\n");
-    //std::vector<unsigned char> fileContent = receiveData(client_fd);
-    // if(fileContent.size() == 0)
-    //     exit(1);
     std::cout << "je passe quand meme ici" << std::endl;
     //std::string fileContentAsString(fileContent.begin(), fileContent.end());
     char buffer[10000];

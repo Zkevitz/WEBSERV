@@ -15,6 +15,7 @@ class Cgi {
         std::string exec_path;
         std::string post_body;
         std::string query_string;
+        pid_t   pid;
         char **char_env;
         int pipe_fd[2];
     public:
@@ -22,6 +23,7 @@ class Cgi {
         Cgi(std::string path, std::string method, Request Req);
         ~Cgi();
 
+        int get_pipe_fd(int side);
         std::string    exec_cgi();
 
 };

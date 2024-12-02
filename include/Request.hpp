@@ -1,8 +1,8 @@
 #ifndef REQUEST_HPP
 # define REQUEST_HPP
 
-
-#include "Webserv.hpp"
+# include "Webserv.hpp"
+# include "Cgi.hpp"
 
 class Request
 {
@@ -15,7 +15,8 @@ class Request
         std::string content_length;
         std::string http_code;
         std::string body;
-        bool cgi_state;
+        int piped_fd[2];
+        short cgi_state;
         size_t serv_fd;
         size_t client_fd;
 		ssize_t bytes_read;

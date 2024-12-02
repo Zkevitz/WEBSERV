@@ -56,7 +56,8 @@ private:
     void acceptConnections();
     void add_client_to_poll(int client_fd);
     void initializePollFds();
-    std::vector<unsigned char> receiveData(int sockfd);
+    std::string read_cgi_output(int client_fd);
+    std::string init_cgi_param(std::string str, Request Req);
 };
 
 #endif // SERVER_HPP

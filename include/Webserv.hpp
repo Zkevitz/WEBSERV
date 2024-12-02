@@ -1,6 +1,12 @@
 #ifndef WEBSERV_HPP
 # define WEBSERV_HPP
 
+
+
+class Cgi;
+class Request;
+class Server;
+
 //server.hpp
 #include <string>
 #include <netinet/in.h>

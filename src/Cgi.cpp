@@ -38,16 +38,24 @@ Cgi::Cgi(std::string path, std::string method, Request Req)
 		this->char_env[i] = strdup(tmp.c_str());
 	}
 }
+int Cgi::get_pipe_fd(int side)
+{
+    if(side == 0)
+        return(this->pipe_fd[0]);
+    else if (side == 1)
+        return(this->pipe_fd[1]);
+}
+
 std::string Cgi::exec_cgi()
 {
-    std::string content;
+    std::string content = "";
     int child_status;
 
     if (pipe(this->pipe_fd) == -1) {
         std::cerr << "Error: Unable to create pipe in." << std::endl;
         return ""; // implementer une sortie
     }
-    pid_t pid = fork();
+    this->pid = fork();
     if (pid == -1) {
         std::cerr << "Error: Unable to fork." << std::endl;
         close(pipe_fd[0]);
@@ -82,19 +90,19 @@ std::string Cgi::exec_cgi()
         }
     }
     else // processus parent
-    { 
-        close(pipe_fd[1]);
-        wait(&child_status);
-        char cgi_buffer[1024];
-        ssize_t bytes_read;
-        while ((bytes_read = read(pipe_fd[0], cgi_buffer, sizeof(cgi_buffer) - 1)) > 0) {
-            cgi_buffer[bytes_read] = '\0'; // Null-terminate the string
-            std::cout << cgi_buffer << std::endl;
-            content += cgi_buffer;
-        }
+    {   
+        // close(pipe_fd[1]);
+        // char cgi_buffer[1024];
+        // ssize_t bytes_read;
+        // while ((bytes_read = read(pipe_fd[0], cgi_buffer, sizeof(cgi_buffer) - 1)) > 0) {
+        //     cgi_buffer[bytes_read] = '\0'; // Null-terminate the string
+        //     std::cout << cgi_buffer << std::endl;
+        //     content += cgi_buffer;
+        // }
+        // wait(&child_status);
     }
-    close(pipe_fd[0]); 
-    int status;
-    waitpid(pid, &status, 0);
+    //close(pipe_fd[0]); 
+    // int status;
+    // waitpid(this->pid, &status, 0);
     return(content);
 }
