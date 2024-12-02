@@ -8,7 +8,7 @@ Cgi::Cgi(std::string path, std::string method, Request Req)
 {
     int i = 0;
     this->post_body = "";
-
+    this->client_fd = Req.client_fd;
     if(path.find_first_of('?') == std::string::npos)
         this->exec_path = path;
     else
@@ -46,6 +46,11 @@ int Cgi::get_pipe_fd(int side)
         return(this->pipe_fd[1]);
     else
         return(this->pipe_fd[0]);
+}
+
+int Cgi::get_pid()
+{
+    return(this->pid);
 }
 
 std::string Cgi::exec_cgi()

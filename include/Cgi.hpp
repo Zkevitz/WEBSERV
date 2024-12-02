@@ -22,8 +22,10 @@ class Cgi {
         Cgi();
         Cgi(std::string path, std::string method, Request Req);
         ~Cgi();
-
+        
+        int client_fd;
         int get_pipe_fd(int side);
+        int get_pid();
         std::string    exec_cgi();
 
 };

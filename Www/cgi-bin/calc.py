@@ -6,7 +6,7 @@ import  urllib.parse
 
 
 
-while true :
+while True :
     time.sleep(1)    
 # le header est genere dans le code du serveur
 # print("Content-Type: text/html\r\n\r\n")

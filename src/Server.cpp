@@ -70,8 +70,9 @@ void    Server::Check_TimeOut()
         //Msg::logMsg(RED, CONSOLE_OUTPUT, "I AM CLIENT FD -- > %d with last time update of %d", it->first, time(NULL) - it->second);
         if ((time(NULL) - it->second) > 60)
         {
+            size_t position = std::distance(TimeOutMap.begin(), it);
             Msg::logMsg(DARK_GREY, CONSOLE_OUTPUT, "Client %d Timeout, Closing Connection..", it->first);
-            close_connexion(it->first, it->first - all_serv_fd.size() - 1);
+            close_connexion(it->first, position);
             return;
         }
     }
@@ -83,8 +84,11 @@ void    Server::close_connexion(int client_fd, size_t pos)
     if(std::find(all_client_fd.begin(), all_client_fd.end(), client_fd) != all_client_fd.end())
     {
         Msg::logMsg(DARK_GREY, CONSOLE_OUTPUT, "Connexion with client : %d closed", client_fd);
-        all_client_fd.erase(all_client_fd.begin() + (pos - all_serv_fd.size()));
+        printf("yolavie\n");
+        all_client_fd.erase(all_client_fd.begin() + (pos - all_serv_fd.size() - 1));
+        printf("yolavie2\n");
         poll_fds.erase(poll_fds.begin() + pos);
+        printf("yolavie3\n");
         Reqmap.erase(client_fd);
         TimeOutMap.erase(client_fd);
         close(client_fd);
@@ -95,15 +99,29 @@ std::string Server::read_cgi_output(int client_fd)
     int child_status;
     std::string content;
     int read_fd = Reqmap[client_fd].cgi_->get_pipe_fd(0);
-
+    int write_fd = Reqmap[client_fd].cgi_->get_pipe_fd(1);
+    int send_fd = Reqmap[client_fd].cgi_->client_fd;
     char cgi_buffer[1024];
     ssize_t bytes_read;
+
+    close(write_fd);
     while ((bytes_read = read(read_fd, cgi_buffer, sizeof(cgi_buffer) - 1)) > 0) {
         cgi_buffer[bytes_read] = '\0'; // Null-terminate the string
         std::cout << cgi_buffer << std::endl;
         content += cgi_buffer;
     }
     wait(&child_status);
+    close(read_fd);
+    int status;
+    waitpid(Reqmap[client_fd].cgi_->get_pid(), &status, 0);
+    std::string http_response =
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/html\r\n"
+        "Content-Length: " + std::to_string(content.size()) + "\r\n"
+        "\r\n" + 
+        content;
+    send(send_fd, http_response.c_str(), http_response.size(), 0);
+    close_connexion(client_fd, client_fd - all_serv_fd.size() - 1);
     return(content);
 }
 std::string Server::init_cgi_param(std::string str, Request Req)
@@ -113,7 +131,8 @@ std::string Server::init_cgi_param(std::string str, Request Req)
     Req.cgi_->exec_cgi();
     int read_fd = Req.cgi_->get_pipe_fd(0);
     add_client_to_poll(read_fd);
-    Req.cgi_state = 2;
+    Reqmap[read_fd].cgi_state = 2;
+    Reqmap[read_fd].cgi_ = Req.cgi_;
     return("");
 }
 
@@ -206,6 +225,7 @@ void Server::acceptConnections() {
             }
             else if (poll_fds[i].revents & POLLIN)
             {
+                std::cout << "fd = " << fd << std::endl;
                 if(std::find(all_serv_fd.begin(), all_serv_fd.end(), fd) != all_serv_fd.end())
                 {
                     struct sockaddr_in client_address;
@@ -221,7 +241,13 @@ void Server::acceptConnections() {
                     add_client_to_poll(client_fd);
                 }
                 else if(std::find(all_client_fd.begin(), all_client_fd.end(), fd) != all_client_fd.end())
-                    readrequest(fd, i);
+                {
+                    std::cout << Reqmap[fd].cgi_state << std::endl;
+                    if(Reqmap[fd].cgi_state == 2)
+                        read_cgi_output(fd);
+                    else
+                        readrequest(fd, i);
+                }
             }
             else if (poll_fds[i].revents & POLLOUT)
             {
@@ -347,7 +373,7 @@ void Server::readrequest(int client_fd, size_t pos) {
         else
             Reqmap[client_fd].cgi_state = false;
         Reqmap[client_fd].setFilePath(FilePath);
-        this->poll_fds[client_fd - all_serv_fd.size() - 1].events = POLLOUT;
+        this->poll_fds[pos].events = POLLOUT;
     }
 }
 
@@ -380,8 +406,14 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
     }
     std::string file_content;
     file.close();
-    if(Reqmap[client_fd].cgi_state == true)
+    if(Reqmap[client_fd].cgi_state == 1)
+    {
             file_content = init_cgi_param(file_path, Reqmap[client_fd]);
+            Reqmap[client_fd].request = "";
+            Reqmap[client_fd].data.clear();
+            this->poll_fds[client_fd - all_serv_fd.size() - 1].events = POLLIN;
+            return;
+    }
     else
     {
         std::cout << "this is my file_path " << file_path << " or " << real_file_path << std::endl;
@@ -414,9 +446,10 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
     }
     else
     {
+        std::cout << this->poll_fds[pos].fd << std::endl;
         Reqmap[client_fd].request = "";
         Reqmap[client_fd].data.clear();
-        this->poll_fds[client_fd - all_serv_fd.size() - 1].events = POLLIN;
+        this->poll_fds[pos].events = POLLIN;
     }
 }
 
