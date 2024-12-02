@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 # coding=utf-8
 import os
+import time
 import  urllib.parse
 
 
 
-while True :
-     print("")
+while true :
+    time.sleep(1)    
 # le header est genere dans le code du serveur
 # print("Content-Type: text/html\r\n\r\n")
 # print("Cache-Control: no-store, no-cache, must-revalidate, max-age=0")

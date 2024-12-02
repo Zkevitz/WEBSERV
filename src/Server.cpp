@@ -94,7 +94,7 @@ std::string Server::read_cgi_output(int client_fd)
 {
     int child_status;
     std::string content;
-    int read_fd = Reqmap[client_fd].piped_fd[0];
+    int read_fd = Reqmap[client_fd].cgi_->get_pipe_fd(0);
 
     char cgi_buffer[1024];
     ssize_t bytes_read;
@@ -108,10 +108,10 @@ std::string Server::read_cgi_output(int client_fd)
 }
 std::string Server::init_cgi_param(std::string str, Request Req)
 {
-    Cgi cgi_ = Cgi(str, Req.method, Req);
+    Req.cgi_ = new Cgi(str, Req.method, Req);
 
-    cgi_.exec_cgi();
-    int read_fd = Req.piped_fd[0];
+    Req.cgi_->exec_cgi();
+    int read_fd = Req.cgi_->get_pipe_fd(0);
     add_client_to_poll(read_fd);
     Req.cgi_state = 2;
     return("");

@@ -44,12 +44,14 @@ int Cgi::get_pipe_fd(int side)
         return(this->pipe_fd[0]);
     else if (side == 1)
         return(this->pipe_fd[1]);
+    else
+        return(this->pipe_fd[0]);
 }
 
 std::string Cgi::exec_cgi()
 {
     std::string content = "";
-    int child_status;
+    //int child_status;
 
     if (pipe(this->pipe_fd) == -1) {
         std::cerr << "Error: Unable to create pipe in." << std::endl;

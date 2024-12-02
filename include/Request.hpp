@@ -3,6 +3,7 @@
 
 # include "Webserv.hpp"
 # include "Cgi.hpp"
+class Cgi;
 
 class Request
 {
@@ -15,7 +16,7 @@ class Request
         std::string content_length;
         std::string http_code;
         std::string body;
-        int piped_fd[2];
+        Cgi *cgi_;
         short cgi_state;
         size_t serv_fd;
         size_t client_fd;

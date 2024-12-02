@@ -1,8 +1,10 @@
 #include "../include/Webserv.hpp"
 
-Request::Request(){};
+Request::Request(){
+}
 Request::Request(std::string method, std::string request): method(method), request(request)
-{}
+{
+}
 Request::~Request(){};
 
 void    Request::setFilePath(std::string FilePath)
