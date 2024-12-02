@@ -68,9 +68,10 @@ void    Server::Check_TimeOut()
     for(std::map<int, time_t>::iterator it = TimeOutMap.begin() ; it != TimeOutMap.end(); ++it)
     {
         //Msg::logMsg(RED, CONSOLE_OUTPUT, "I AM CLIENT FD -- > %d with last time update of %d", it->first, time(NULL) - it->second);
-        if ((time(NULL) - it->second) > 60)
+        if ((time(NULL) - it->second) > 3)
         {
             size_t position = std::distance(TimeOutMap.begin(), it);
+            position += all_serv_fd.size();
             Msg::logMsg(DARK_GREY, CONSOLE_OUTPUT, "Client %d Timeout, Closing Connection..", it->first);
             close_connexion(it->first, position);
             return;
@@ -84,17 +85,25 @@ void    Server::close_connexion(int client_fd, size_t pos)
     if(std::find(all_client_fd.begin(), all_client_fd.end(), client_fd) != all_client_fd.end())
     {
         Msg::logMsg(DARK_GREY, CONSOLE_OUTPUT, "Connexion with client : %d closed", client_fd);
-        printf("yolavie\n");
-        all_client_fd.erase(all_client_fd.begin() + (pos - all_serv_fd.size() - 1));
-        printf("yolavie2\n");
+        printf("1\n");
+        printf("valeur erase : %lu\n",all_serv_fd.size());//+ (pos - all_serv_fd.size()) - 1);
+        printf("pos : %lu\n", pos);
+
+
+        std::vector<int>::iterator it = all_client_fd.begin();
+        (void) it;
+        printf("2\n");
+        all_client_fd.erase(all_client_fd.begin() + (pos - all_serv_fd.size()));
+        printf("3\n");
         poll_fds.erase(poll_fds.begin() + pos);
-        printf("yolavie3\n");
         Reqmap.erase(client_fd);
+        printf("4\n");
         TimeOutMap.erase(client_fd);
         close(client_fd);
     }
+    
 }
-std::string Server::read_cgi_output(int client_fd)
+std::string Server::read_cgi_output(int client_fd, size_t i)
 {
     int child_status;
     std::string content;
@@ -121,7 +130,7 @@ std::string Server::read_cgi_output(int client_fd)
         "\r\n" + 
         content;
     send(send_fd, http_response.c_str(), http_response.size(), 0);
-    close_connexion(client_fd, client_fd - all_serv_fd.size() - 1);
+    close_connexion(client_fd, i);
     return(content);
 }
 std::string Server::init_cgi_param(std::string str, Request Req)
@@ -201,6 +210,20 @@ void    Server::add_client_to_poll(int client_fd)
     Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "New Client Connection on fd %d len of poll struct is now %d", client_fd, poll_fds.size());
 }
 
+
+int Server::compare_poll(size_t size)
+{
+   for(size_t i = 0; i < poll_fds.size(); i++)
+   {
+        if ((int)size == poll_fds[i].fd)
+            return 1;
+   }
+   printf("1\n");
+   printf("size : %lu\n", size);
+   //printf("poll size %lu\n")
+   return 0;
+}
+
 void Server::acceptConnections() {
 
     initializePollFds();
@@ -216,7 +239,8 @@ void Server::acceptConnections() {
         {
             int fd = poll_fds[i].fd;
             //std::cout << "THIS IS MY FD ; " << fd << std::endl;
-
+            if(!compare_poll(fd))
+                continue;
             Msg::logMsg(RED, CONSOLE_OUTPUT, "Revent for fd : %d  = %d and ERRNO = %d ", fd, poll_fds[i].revents, strerror(errno));
             if (poll_fds[i].revents & POLLHUP)
             {
@@ -244,7 +268,7 @@ void Server::acceptConnections() {
                 {
                     std::cout << Reqmap[fd].cgi_state << std::endl;
                     if(Reqmap[fd].cgi_state == 2)
-                        read_cgi_output(fd);
+                        read_cgi_output(fd, i);
                     else
                         readrequest(fd, i);
                 }
@@ -258,9 +282,9 @@ void Server::acceptConnections() {
                     if (method == "GET" || Reqmap[fd].cgi_state == 1) {
                         serveFile(fd, Reqmap[fd].FilePath, i);
                     } else if (method == "POST") {
-                        handlePost(fd, Reqmap[fd].request, Reqmap[fd].FilePath, Reqmap[fd].bytes_read, Reqmap[fd].data); // New function for handling POST requests
+                        handlePost(fd, Reqmap[fd].request, Reqmap[fd].FilePath, Reqmap[fd].bytes_read, Reqmap[fd].data, i); // New function for handling POST requests
                     } else if (method == "DELETE") {
-                        handleDelete(fd, Reqmap[fd].FilePath); // New function for handling DELETE requests
+                        handleDelete(fd, Reqmap[fd].FilePath, i); // New function for handling DELETE requests
                     }
                 }
             }
@@ -439,18 +463,18 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
     send(client_fd, http_response.c_str(), http_response.size(), 0);
     Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "client %d reponse envoyer", client_fd);
     std::cout << "POURQUOI JE DL PLS!!!" << std::endl;
-    if(Reqmap[client_fd].connexion == "close")
-    {
-        std::cout << "MAIS WEEEEESHHH " << std::endl;
-        close_connexion(client_fd, pos);
-    }
-    else
-    {
+    // if(Reqmap[client_fd].connexion == "close")
+    // {
+    //     std::cout << "MAIS WEEEEESHHH " << std::endl;
+    //     close_connexion(client_fd, pos);
+    // }
+    // else
+    // {
         std::cout << this->poll_fds[pos].fd << std::endl;
         Reqmap[client_fd].request = "";
         Reqmap[client_fd].data.clear();
         this->poll_fds[pos].events = POLLIN;
-    }
+    //}
 }
 
 std::string Server::getContentType(const std::string& file_path) {
@@ -502,7 +526,7 @@ void Server::sendError(int client_fd, std::string err_code) {
     //close_connexion(client_fd, client_fd - all_serv_fd.size() - 1);
 }
 
-void Server::handlePost(int client_fd, const std::string& request, const std::string& path, size_t request_length, std::vector<unsigned char> data)
+void Server::handlePost(int client_fd, const std::string& request, const std::string& path, size_t request_length, std::vector<unsigned char> data, size_t pos)
 {
     (void) path;
     (void) request_length;
@@ -548,7 +572,10 @@ void Server::handlePost(int client_fd, const std::string& request, const std::st
             std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"
                                    "File uploaded successfully";
             send(client_fd, response.c_str(), response.size(), 0);
-            close_connexion(client_fd, client_fd - all_serv_fd.size() - 1);
+            std::cout << this->poll_fds[pos].fd << std::endl;
+            Reqmap[client_fd].request = "";
+            Reqmap[client_fd].data.clear();
+            this->poll_fds[pos].events = POLLIN;
             return;
         }
         start = end;
@@ -559,7 +586,7 @@ void Server::handlePost(int client_fd, const std::string& request, const std::st
 
 
 
-void Server::handleDelete(int client_fd, const std::string& file_path)
+void Server::handleDelete(int client_fd, const std::string& file_path, size_t pos)
 {
     std::string response;
     std::cout << "FILE PATH = " << file_path << std::endl;
@@ -582,5 +609,8 @@ void Server::handleDelete(int client_fd, const std::string& file_path)
                        "<html><body><h2>FILE NOT FOUND</h2></body></html>";
     }
     send(client_fd, response.c_str(), response.size(), 0);
-    close_connexion(client_fd, client_fd - all_serv_fd.size() - 1);
+    std::cout << this->poll_fds[pos].fd << std::endl;
+    Reqmap[client_fd].request = "";
+    Reqmap[client_fd].data.clear();
+    this->poll_fds[pos].events = POLLIN;
 }

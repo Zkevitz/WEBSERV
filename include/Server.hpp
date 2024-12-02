@@ -46,8 +46,8 @@ private:
     void serveFile(int client_fd, const std::string& file_path, size_t pos); // Serves the requested file
     std::string getContentType(const std::string& file_path); // Gets the content type based on the file extension
     void sendError(int client_fd, std::string err_code); // Sends all error_page
-    void handlePost(int client_fd, const std::string& request, const std::string& path, size_t request_length, std::vector<unsigned char> buffer);
-    void handleDelete(int client_fd, const std::string& file_path);
+    void handlePost(int client_fd, const std::string& request, const std::string& path, size_t request_length, std::vector<unsigned char> buffer, size_t pos);
+    void handleDelete(int client_fd, const std::string& file_path, size_t pos);
     void sendInvalidUploadResponse(int client_fd);
     // Existing methods
     bool createSocket();
@@ -56,8 +56,9 @@ private:
     void acceptConnections();
     void add_client_to_poll(int client_fd);
     void initializePollFds();
-    std::string read_cgi_output(int client_fd);
+    std::string read_cgi_output(int client_fd, size_t i);
     std::string init_cgi_param(std::string str, Request Req);
+    int compare_poll(size_t size);
 };
 
 #endif // SERVER_HPP
