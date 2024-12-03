@@ -393,8 +393,8 @@ void Server::readrequest(int client_fd, size_t pos) {
         else 
         {
             Reqmap[client_fd].http_code = "501";
-            sendError(client_fd, "501");
-            this->poll_fds[client_fd - all_serv_fd.size() - 1].events = POLLIN;
+            sendError(client_fd, "501", pos);
+            this->poll_fds[pos].events = POLLIN;
             return;
         }
         if(FilePath.find("cgi-bin") != std::string::npos)
@@ -426,7 +426,7 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
     std::string real_file_path = trim_cgi_param(file_path);
     std::ifstream file(real_file_path.c_str(), std::ios::in | std::ios::binary);
     if (!file.is_open()) {
-        sendError(client_fd, "404");
+        sendError(client_fd, "404", pos);
         return;
     }
     std::string file_content;
@@ -509,9 +509,9 @@ const std::string Server::find_err_path(int serv_fd, int err_code)
     return(err_path);
 }
 
-void Server::sendError(int client_fd, std::string err_code) {
+void Server::sendError(int client_fd, std::string err_code, size_t pos) {
     std::string err_page_path = find_err_path(Reqmap[client_fd].serv_fd, std::atoi(err_code.c_str()));
-    serveFile(client_fd, err_page_path, client_fd - all_serv_fd.size() - 1);
+    serveFile(client_fd, err_page_path, pos);
     std::string http_response =
         "HTTP/1.1 " + err_code + "Not Found\r\n"
         "Content-Type: text/html\r\n"
