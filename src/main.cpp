@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
         }
         Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "Server %d : %d is starting...", serverConfig.hostname.c_str(), serverConfig.port);
     }
-    server.start();  // Launch the server
+    server.start();
 
     return 0;
 }

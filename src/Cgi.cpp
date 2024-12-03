@@ -56,18 +56,16 @@ int Cgi::get_pid()
 std::string Cgi::exec_cgi()
 {
     std::string content = "";
-    //int child_status;
-
     if (pipe(this->pipe_fd) == -1) {
         std::cerr << "Error: Unable to create pipe in." << std::endl;
-        return ""; // implementer une sortie
+        return "";
     }
     this->pid = fork();
     if (pid == -1) {
         std::cerr << "Error: Unable to fork." << std::endl;
         close(pipe_fd[0]);
         close(pipe_fd[1]);
-        return ""; // implementer une sortie 
+        return "";
     }
     if (pid == 0) // processus enfant
     {
@@ -96,20 +94,5 @@ std::string Cgi::exec_cgi()
             exit(1);
         }
     }
-    else // processus parent
-    {   
-        // close(pipe_fd[1]);
-        // char cgi_buffer[1024];
-        // ssize_t bytes_read;
-        // while ((bytes_read = read(pipe_fd[0], cgi_buffer, sizeof(cgi_buffer) - 1)) > 0) {
-        //     cgi_buffer[bytes_read] = '\0'; // Null-terminate the string
-        //     std::cout << cgi_buffer << std::endl;
-        //     content += cgi_buffer;
-        // }
-        // wait(&child_status);
-    }
-    //close(pipe_fd[0]); 
-    // int status;
-    // waitpid(this->pid, &status, 0);
     return(content);
 }

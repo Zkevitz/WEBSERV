@@ -11,5 +11,5 @@ std::string myItoa(int to_translate)
 bool fileExists (const std::string& f) 
 {
     std::ifstream file(f.c_str());
-    return (file.good()); // renvoie true si les fichier a bien ete trouve, renvoie false dans le cas contraire
+    return (file.good());
 }

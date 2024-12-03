@@ -16,9 +16,8 @@ Server::Server(const std::string& hostname, int port) : hostname(hostname), port
 Server::Server():amount_of_serv(0){}
 
 Server::~Server() {
-    if (server_fd != -1) {
-        close(server_fd); // Close the socket when the server is destroyed
-    }
+    if (server_fd != -1)
+        close(server_fd);
 }
 
 bool Server::setup() {
@@ -52,8 +51,6 @@ bool Server::bindSocket() {
 
 void    Server::add_serv(ServerConfig newServ)
 {
-   //hostname = newServ.hostname;
-   //port = newServ.port;
    (void)port;
     all_hostname.push_back(newServ.hostname);
     all_port.push_back(newServ.port);
@@ -66,8 +63,7 @@ void    Server::Check_TimeOut()
 {
     for(std::map<int, time_t>::iterator it = TimeOutMap.begin() ; it != TimeOutMap.end(); ++it)
     {
-        //Msg::logMsg(RED, CONSOLE_OUTPUT, "I AM CLIENT FD -- > %d with last time update of %d", it->first, time(NULL) - it->second);
-        if ((time(NULL) - it->second) > 30)
+        if ((time(NULL) - it->second) > 60)
         {
             size_t position = std::distance(TimeOutMap.begin(), it);
             position += all_serv_fd.size();
@@ -163,7 +159,6 @@ void Server::start() {
             return;
         }
         Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "Server listening on %s : %d", this->getHostname(i), all_port[i]);
-        //std::cout << "Server listening on " << all_hostname[i] << ":" << all_port[i] << std::endl;
     }
     acceptConnections();
 }
@@ -171,7 +166,6 @@ void Server::start() {
 void Server::initializePollFds()
 {
     this->poll_fds.clear(); 
-    //std::cout << "ALL SERV LEN = " << this->all_serv_fd.size() << std::endl;
     for (size_t i = 0; i < this->all_serv_fd.size(); i++)
     {
         pollfd pfd;
@@ -212,9 +206,6 @@ int Server::compare_poll(size_t size)
         if ((int)size == poll_fds[i].fd)
             return 1;
    }
-   printf("1\n");
-   printf("size : %lu\n", size);
-   //printf("poll size %lu\n")
    return 0;
 }
 
@@ -361,11 +352,9 @@ void Server::readrequest(int client_fd, size_t pos) {
         Reqmap[client_fd].method = method;
         Reqmap[client_fd].request = fileContentAsString;
         Reqmap[client_fd].data = fileContent;
-         printf("10\n");
         Reqmap[client_fd].client_fd = client_fd;
-        Reqmap[client_fd].bytes_read = fileContent.size(); //  A VERIFIER ANCIENNEMENT = =bytes_read;
+        Reqmap[client_fd].bytes_read = fileContent.size();
         Reqmap[client_fd].http_code = "200";
-        //Reqmap[client_fd].buffer = buffer;
         std::string FilePath;
         if (method == "GET")
         {
@@ -452,28 +441,18 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
     }
     std::string content_type = Reqmap[client_fd].cgi_state ? "text/html; charset=utf-8" : getContentType(real_file_path);
     std::string http_code = Reqmap[client_fd].http_code;
-    
     std::string http_response =
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: " + content_type + "\r\n"
         "Content-Length: " + std::to_string(file_content.size()) + "\r\n"
         "\r\n" + 
         file_content;
-    
     send(client_fd, http_response.c_str(), http_response.size(), 0);
     Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "client %d reponse envoyer with HTTP code : %s", client_fd, Reqmap[client_fd].http_code.c_str());
-    // if(Reqmap[client_fd].connexion == "close")
-    // {
-    //     std::cout << "MAIS WEEEEESHHH " << std::endl;
-    //     close_connexion(client_fd, pos);
-    // }
-    // else
-    // {
-        std::cout << this->poll_fds[pos].fd << std::endl;
-        Reqmap[client_fd].request = "";
-        Reqmap[client_fd].data.clear();
-        this->poll_fds[pos].events = POLLIN;
-    //}
+    std::cout << this->poll_fds[pos].fd << std::endl;
+    Reqmap[client_fd].request = "";
+    Reqmap[client_fd].data.clear();
+    this->poll_fds[pos].events = POLLIN;
 }
 
 std::string Server::getContentType(const std::string& file_path) {
@@ -491,7 +470,7 @@ void Server::sendInvalidUploadResponse(int client_fd) {
                            "Content-Type: text/html\r\n"
                            "Content-Length: 40\r\n"
                            "\r\n"
-                           "<html><body><h2>Invalid file upload</h2></body></html>";
+                           "Invalid file upload";
     send(client_fd, response.c_str(), response.size(), 0);
 }
 
@@ -602,7 +581,7 @@ void Server::handleDelete(int client_fd, const std::string& file_path, size_t po
     else
     {
         response = "HTTP/1.1 404 Server Error\r\nContent-Type: text/html\r\n\r\n"
-                       "<html><body><h2>FILE NOT FOUND</h2></body></html>";
+                       "FILE NOT FOUND";
     }
     send(client_fd, response.c_str(), response.size(), 0);
     std::cout << this->poll_fds[pos].fd << std::endl;

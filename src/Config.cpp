@@ -32,12 +32,10 @@ void Config::parseServerBlock(std::ifstream& file) {
     std::string line;
 
     while (std::getline(file, line)) {
-        trim(line);  // Remove whitespace
+        trim(line);
 
-        if (line == "}") {
-            break;  // End of server block
-        }
-
+        if (line == "}")
+            break;
         if (line.find("listen") == 0) {
             serverConfig.port = extractPort(line);
         } else if (line.find("server_name") == 0) {
@@ -73,16 +71,15 @@ void Config::trim(std::string& str) {
     size_t last = str.find_last_not_of(" \t\n\r\f\v");
     if (first != std::string::npos && last != std::string::npos) {
         str = str.substr(first, (last - first + 1));
-    } else {
-        str.clear(); // If the string is empty or consists only of whitespace
-    }
+    } else
+        str.clear();
 }
 
 int Config::extractPort(const std::string& line) {
     std::istringstream iss(line);
     std::string token;
     iss >> token >> token; // Skip "listen" and get port
-    return static_cast<int>(std::atoi(token.c_str())); // Convert to int
+    return static_cast<int>(std::atoi(token.c_str()));
 }
 
 std::string Config::extractServerName(const std::string& line) {
