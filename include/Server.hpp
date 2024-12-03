@@ -59,6 +59,9 @@ private:
     std::string read_cgi_output(int client_fd, size_t i);
     std::string init_cgi_param(std::string str, Request Req);
     int compare_poll(size_t size);
+
+    const char* getHostname(int Vecpos);
+    int getPort(int Vecpos);
 };
 
 #endif // SERVER_HPP

@@ -64,7 +64,6 @@ std::map <int, std::string> Config::extractErrPages(const std::string &line)
 
     iss >> token; // skip error_page 
     iss >> err_code >> err_path;
-    std::cout << "err_code = " << err_code << " err_path = " << err_path << std::endl;
     node[err_code] = err_path;
     return node;
 }

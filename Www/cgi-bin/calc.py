@@ -22,6 +22,6 @@ if params:
     for key, value in params.items():
         print("<p>{} = {}</p>".format(key, value[0]))
 else:
-    print("<p>Aucun parametre recu.</p>")
+    print("<p>Aucun parametre reÇu.</p>")
 
 print("</body></html>")

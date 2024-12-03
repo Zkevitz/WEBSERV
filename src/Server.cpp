@@ -57,7 +57,6 @@ void    Server::add_serv(ServerConfig newServ)
    (void)port;
     all_hostname.push_back(newServ.hostname);
     all_port.push_back(newServ.port);
-    printf("1\n");
     if(newServ.error_pages.size() > 0)
         err_pages[amount_of_serv + 3] = newServ.error_pages;
     amount_of_serv++;
@@ -68,11 +67,11 @@ void    Server::Check_TimeOut()
     for(std::map<int, time_t>::iterator it = TimeOutMap.begin() ; it != TimeOutMap.end(); ++it)
     {
         //Msg::logMsg(RED, CONSOLE_OUTPUT, "I AM CLIENT FD -- > %d with last time update of %d", it->first, time(NULL) - it->second);
-        if ((time(NULL) - it->second) > 3)
+        if ((time(NULL) - it->second) > 30)
         {
             size_t position = std::distance(TimeOutMap.begin(), it);
             position += all_serv_fd.size();
-            Msg::logMsg(DARK_GREY, CONSOLE_OUTPUT, "Client %d Timeout, Closing Connection..", it->first);
+            Msg::logMsg(YELLOW, CONSOLE_OUTPUT, "Client %d Timeout, Closing Connection..", it->first);
             close_connexion(it->first, position);
             return;
         }
@@ -81,23 +80,16 @@ void    Server::Check_TimeOut()
 
 void    Server::close_connexion(int client_fd, size_t pos)
 {
-   //std::cout << "size of client = " << all_clien
     if(std::find(all_client_fd.begin(), all_client_fd.end(), client_fd) != all_client_fd.end())
     {
-        Msg::logMsg(DARK_GREY, CONSOLE_OUTPUT, "Connexion with client : %d closed", client_fd);
-        printf("1\n");
-        printf("valeur erase : %lu\n",all_serv_fd.size());//+ (pos - all_serv_fd.size()) - 1);
-        printf("pos : %lu\n", pos);
+        Msg::logMsg(YELLOW, CONSOLE_OUTPUT, "Connexion with client : [%d] closed", client_fd);
 
 
         std::vector<int>::iterator it = all_client_fd.begin();
         (void) it;
-        printf("2\n");
         all_client_fd.erase(all_client_fd.begin() + (pos - all_serv_fd.size()));
-        printf("3\n");
         poll_fds.erase(poll_fds.begin() + pos);
         Reqmap.erase(client_fd);
-        printf("4\n");
         TimeOutMap.erase(client_fd);
         close(client_fd);
     }
@@ -125,11 +117,12 @@ std::string Server::read_cgi_output(int client_fd, size_t i)
     waitpid(Reqmap[client_fd].cgi_->get_pid(), &status, 0);
     std::string http_response =
         "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/html\r\n"
+        "Content-Type: text/html; charset=utf-8\r\n"
         "Content-Length: " + std::to_string(content.size()) + "\r\n"
         "\r\n" + 
         content;
     send(send_fd, http_response.c_str(), http_response.size(), 0);
+    Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "client %d reponse envoyer with HTTP code : %s", client_fd, Reqmap[client_fd].http_code.c_str());
     close_connexion(client_fd, i);
     return(content);
 }
@@ -169,7 +162,8 @@ void Server::start() {
             std::cerr << "Error: Failed to listen on socket." << std::endl;
             return;
         }
-        std::cout << "Server listening on " << all_hostname[i] << ":" << all_port[i] << std::endl;
+        Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "Server listening on %s : %d", this->getHostname(i), all_port[i]);
+        //std::cout << "Server listening on " << all_hostname[i] << ":" << all_port[i] << std::endl;
     }
     acceptConnections();
 }
@@ -224,6 +218,17 @@ int Server::compare_poll(size_t size)
    return 0;
 }
 
+const char* Server::getHostname(int Vecpos)
+{
+    return(all_hostname[Vecpos].c_str());
+}
+
+int Server::getPort(int Vecpos)
+{
+    return(all_port[Vecpos]);
+}
+
+
 void Server::acceptConnections() {
 
     initializePollFds();
@@ -232,24 +237,25 @@ void Server::acceptConnections() {
         //Msg::logMsg(RED, CONSOLE_OUTPUT, "poll_ret = %d", poll_ret);
         if (poll_ret < 0)
         {
-            std::cerr << "webserv: poll error   Closing ...." << std::endl;
+            if(!running)
+                Msg::logMsg(RED, CONSOLE_OUTPUT, "Webserv closing poll...");
+            else
+                std::cerr << "webserv: poll error   Closing ...." << std::endl;
             exit(1);
         }
         for(size_t i = 0; i < poll_fds.size(); i++)
         {
             int fd = poll_fds[i].fd;
-            //std::cout << "THIS IS MY FD ; " << fd << std::endl;
             if(!compare_poll(fd))
                 continue;
-            Msg::logMsg(RED, CONSOLE_OUTPUT, "Revent for fd : %d  = %d and ERRNO = %d ", fd, poll_fds[i].revents, strerror(errno));
+            Msg::logMsg(RED, FILE_OUTPUT, "Revent for fd : %d  = %d and ERRNO = %d ", fd, poll_fds[i].revents, strerror(errno));
             if (poll_fds[i].revents & POLLHUP)
             {
-                std::cout << "close by POLLHUP" << std::endl;
+                Msg::logMsg(YELLOW, CONSOLE_OUTPUT, "Poll close connexion event on fd [%d]...", fd);
                 close_connexion(fd, i);
             }
             else if (poll_fds[i].revents & POLLIN)
             {
-                std::cout << "fd = " << fd << std::endl;
                 if(std::find(all_serv_fd.begin(), all_serv_fd.end(), fd) != all_serv_fd.end())
                 {
                     struct sockaddr_in client_address;
@@ -259,14 +265,13 @@ void Server::acceptConnections() {
                     if (errno == EWOULDBLOCK || errno == EAGAIN)
                             continue;
                     if (client_fd < 0) { 
-                            std::cerr << "Error: Failed to accept connection. Errno: " << strerror(errno) << std::endl;
+                            Msg::logMsg(RED, CONSOLE_OUTPUT, "Error: Failed to accept connection. Errno: %s", strerror(errno));
                             exit(1);
                     }
                     add_client_to_poll(client_fd);
                 }
                 else if(std::find(all_client_fd.begin(), all_client_fd.end(), fd) != all_client_fd.end())
                 {
-                    std::cout << Reqmap[fd].cgi_state << std::endl;
                     if(Reqmap[fd].cgi_state == 2)
                         read_cgi_output(fd, i);
                     else
@@ -278,7 +283,6 @@ void Server::acceptConnections() {
                 if(std::find(all_client_fd.begin(), all_client_fd.end(), fd) != all_client_fd.end())
                 {
                     std::string method = Reqmap[fd].method;
-                    //std::cout << "cgi state ? = " << Reqmap[fd].cgi_state << std::endl;
                     if (method == "GET" || Reqmap[fd].cgi_state == 1) {
                         serveFile(fd, Reqmap[fd].FilePath, i);
                     } else if (method == "POST") {
@@ -295,21 +299,23 @@ void Server::acceptConnections() {
     }
     for (size_t i = 0; i < all_serv_fd.size(); i++)
         close(this->all_serv_fd[i]);
+    for (size_t i = 0; i < all_client_fd.size(); i++)
+        close(this->all_client_fd[i]);
 }
 
 void Server::readrequest(int client_fd, size_t pos) {
 
     (void)pos;
-    printf("1\n");
-    std::cout << "je passe quand meme ici" << std::endl;
-    //std::string fileContentAsString(fileContent.begin(), fileContent.end());
     char buffer[10000];
     memset(buffer, 0, sizeof(buffer));
     ssize_t bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-    Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "Request : we get %d bytes_read\n", bytes_read);
+    Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "Request from client %d : we get %d bytes_read\n", client_fd, bytes_read);
     if (bytes_read <= 0) {
+        if(bytes_read == 0)
+            Msg::logMsg(YELLOW, CONSOLE_OUTPUT, "Connexion closed by read end on client : [%d]", client_fd);
+        else if(bytes_read < 0)
+            Msg::logMsg(YELLOW, CONSOLE_OUTPUT, "Connexion closed by read error on client : [%d]", client_fd);
         close_connexion(client_fd, pos);
-        std::cerr << "Error: Failed to read from client." << std::endl;
         return;
     }
     else if(bytes_read == 9999)
@@ -337,7 +343,7 @@ void Server::readrequest(int client_fd, size_t pos) {
         std::string fileContentAsString(fileContent.begin(), fileContent.end());
         TimeOutMap[client_fd] = time(NULL);
         Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "------------------------------------------------------------");
-        Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "Request : the complete request = %s", fileContentAsString.c_str());
+        Msg::logMsg(DARK_GREY, CONSOLE_OUTPUT, "Request : the complete request = %s", fileContentAsString.c_str());
         Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "------------------------------------------------------------");
         std::string method, path, connexion;
         size_t method_end = fileContentAsString.find(' ');
@@ -374,7 +380,6 @@ void Server::readrequest(int client_fd, size_t pos) {
             Reqmap[client_fd].body = fileContentAsString.substr(param_pos + 6, fileContentAsString.size() - param_pos);
             Reqmap[client_fd].content_type = fileContentAsString.substr(Content_type_pos + 12, Content_length_pos - Content_type_pos);
             Reqmap[client_fd].content_length = fileContentAsString.substr(Content_length_pos + 15, Origin_pos - (Content_length_pos + 15));
-            std::cout << "CONTENT LENNNNNNN === " << Reqmap[client_fd].content_length << std::endl;
             FilePath = getFilePath(path);
         } 
         else if (method == "DELETE") 
@@ -414,18 +419,14 @@ std::string trim_cgi_param(std::string str)
     else
     {
         int i = str.find('?');
-        //std::cout << "QUERY_ENV = " << str.c_str() + i + 1 << std::endl;
-        //if(setenv("QUERY_STRING", str.c_str() + i + 1, 1) != 0)
-        //    std::cerr << "Error setenv query_string!" << std::endl;
         return str.substr(0, i);
     }
 }
 void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) {
     std::string real_file_path = trim_cgi_param(file_path);
-    std::cout << "real file path = " << real_file_path.c_str() << std::endl;
     std::ifstream file(real_file_path.c_str(), std::ios::in | std::ios::binary);
     if (!file.is_open()) {
-        //send404(client_fd);
+        sendError(client_fd, "404");
         return;
     }
     std::string file_content;
@@ -440,7 +441,6 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
     }
     else
     {
-        std::cout << "this is my file_path " << file_path << " or " << real_file_path << std::endl;
         std::ifstream file(real_file_path);
         if (!file.is_open()) {
             std::cerr << "Error: Unable to open HTML file." << std::endl;
@@ -452,7 +452,7 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
     }
     std::string content_type = Reqmap[client_fd].cgi_state ? "text/html; charset=utf-8" : getContentType(real_file_path);
     std::string http_code = Reqmap[client_fd].http_code;
-    std::cout << "HTTP CODE = " << http_code << std::endl;
+    
     std::string http_response =
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: " + content_type + "\r\n"
@@ -461,8 +461,7 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
         file_content;
     
     send(client_fd, http_response.c_str(), http_response.size(), 0);
-    Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "client %d reponse envoyer", client_fd);
-    std::cout << "POURQUOI JE DL PLS!!!" << std::endl;
+    Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "client %d reponse envoyer with HTTP code : %s", client_fd, Reqmap[client_fd].http_code.c_str());
     // if(Reqmap[client_fd].connexion == "close")
     // {
     //     std::cout << "MAIS WEEEEESHHH " << std::endl;
@@ -479,11 +478,11 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
 
 std::string Server::getContentType(const std::string& file_path) {
     if (file_path.substr(file_path.size() - 5) == ".html") return "text/html";
+    if (file_path.substr(file_path.size() - 3) == ".py") return "text/html";
     if (file_path.substr(file_path.size() - 4) == ".css") return "text/css";
     if (file_path.substr(file_path.size() - 3) == ".js") return "application/javascript";
     if (file_path.substr(file_path.size() - 4) == ".jpg" || file_path.substr(file_path.size() - 5) == ".jpeg") return "image/jpeg";
     if (file_path.substr(file_path.size() - 4) == ".png") return "image/png";
-    std::cout << "FONCTION DE MERDE " << std::endl;
     return "multipart/form-data"; // ANCIENNEMENT text/html;
 }
 
@@ -507,13 +506,11 @@ const std::string Server::find_err_path(int serv_fd, int err_code)
         }
     }
     std::string err_path = "./Www/error_pages/error" + myItoa(err_code) + ".html";
-    std::cout << "????" << err_path << std::endl;
     return(err_path);
 }
 
 void Server::sendError(int client_fd, std::string err_code) {
     std::string err_page_path = find_err_path(Reqmap[client_fd].serv_fd, std::atoi(err_code.c_str()));
-    std::cout << "!11!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!voici la page d'erreur du fichier de config ou non : " << err_page_path << std::endl;
     serveFile(client_fd, err_page_path, client_fd - all_serv_fd.size() - 1);
     std::string http_response =
         "HTTP/1.1 " + err_code + "Not Found\r\n"
@@ -562,7 +559,6 @@ void Server::handlePost(int client_fd, const std::string& request, const std::st
             // Get the file content
             size_t file_start = content_disposition_end + 4; // Skip "\r\n"
             std::string file_path = "./uploads/" +  file_name; // Adjust path as necessary
-            printf("file_path : %s\n", file_path.c_str());
             int f = open(file_path.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
             data[data.size() -1] = 0;
             unsigned char *l = reinterpret_cast<unsigned char*>(&data[file_start]);
