@@ -39,7 +39,8 @@ void Config::parseServerBlock(std::ifstream& file) {
         if (line.find("listen") == 0) {
             serverConfig.port = extractPort(line);
         } else if (line.find("server_name") == 0) {
-            serverConfig.hostname = extractServerName(line);
+            serverConfig.hostname = "127.0.0.1";
+            serverConfig.hostname_str = extractServerName(line);
         } else if (line.find("root") == 0) {
             serverConfig.root = extractRoot(line);
         } else if (line.find("index") == 0) {
@@ -86,8 +87,8 @@ std::string Config::extractServerName(const std::string& line) {
     std::istringstream iss(line);
     std::string token;
     iss >> token >> token; // Skip "server_name" and get name
-    if (token == "localhost")
-        token = "127.0.0.1";
+    //if (token == "localhost")
+    //token = "127.0.0.1";
     return token;
 }
 

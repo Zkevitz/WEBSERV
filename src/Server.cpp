@@ -39,12 +39,12 @@ bool Server::bindSocket() {
     address.sin_family = AF_INET; // IPv4
     address.sin_addr.s_addr = inet_addr(all_hostname[i].c_str()); // Use the hostname from config
     address.sin_port = htons(all_port[i]); // Set the port
-
-    if (bind(all_serv_fd[i], (struct sockaddr*)&address, sizeof(address)) < 0) {
+    printf("%s\n", all_hostname[i].c_str());
+    all_sock_addr.push_back(address);
+    if (bind(all_serv_fd[i], (struct sockaddr*)&all_sock_addr[i], sizeof(all_sock_addr[i])) < 0) {
         perror("bind failed");
         return false;
     }
-    all_sock_addr.push_back(address);
     i++;
     return true;
 }
@@ -53,6 +53,7 @@ void    Server::add_serv(ServerConfig newServ)
 {
    (void)port;
     all_hostname.push_back(newServ.hostname);
+    all_hostname_str.push_back(newServ.hostname_str);
     all_port.push_back(newServ.port);
     if(newServ.error_pages.size() > 0)
         err_pages[amount_of_serv + 3] = newServ.error_pages;
@@ -107,6 +108,12 @@ std::string Server::read_cgi_output(int client_fd, size_t i)
         std::cout << cgi_buffer << std::endl;
         content += cgi_buffer;
     }
+    if (bytes_read == - 1)
+    {
+        close(read_fd);
+        close_connexion(client_fd, i);
+        return ("");
+    }
     wait(&child_status);
     close(read_fd);
     int status;
@@ -122,7 +129,7 @@ std::string Server::read_cgi_output(int client_fd, size_t i)
     close_connexion(client_fd, i);
     return(content);
 }
-std::string Server::init_cgi_param(std::string str, Request Req)
+std::string Server::init_cgi_param(std::string str, Request& Req)
 {
     Req.cgi_ = new Cgi(str, Req.method, Req);
 
@@ -347,18 +354,29 @@ void Server::readrequest(int client_fd, size_t pos) {
         }
         size_t connexion_pos = fileContentAsString.find("Connection:");
         size_t Referer_pos = fileContentAsString.find("Referer");
+        size_t Host_pos = fileContentAsString.find("Host:");
+        size_t User_Agent_pos = fileContentAsString.find("User-Agent:");
+        Reqmap[client_fd].hostname = fileContentAsString.substr(Host_pos + 6, User_Agent_pos - (Host_pos + 6));
+        size_t double_point = Reqmap[client_fd].hostname.find(":");
+        Reqmap[client_fd].hostname = Reqmap[client_fd].hostname.substr(0, double_point);
+        if(CheckValidHost(Reqmap[client_fd].hostname) == 1)
+        {
+            sendError(client_fd, "400 Bad Request", pos);
+            return;
+        }
         connexion = fileContentAsString.substr(connexion_pos + 11 , Referer_pos - connexion_pos);
+
         Reqmap[client_fd].setConnexion(connexion);
         Reqmap[client_fd].method = method;
         Reqmap[client_fd].request = fileContentAsString;
         Reqmap[client_fd].data = fileContent;
         Reqmap[client_fd].client_fd = client_fd;
         Reqmap[client_fd].bytes_read = fileContent.size();
-        Reqmap[client_fd].http_code = "200";
         std::string FilePath;
         if (method == "GET")
         {
             FilePath = getFilePath(path);
+            Reqmap[client_fd].http_code = "200 OK";
         } 
         else if (method == "POST")
         {
@@ -369,6 +387,7 @@ void Server::readrequest(int client_fd, size_t pos) {
             Reqmap[client_fd].body = fileContentAsString.substr(param_pos + 6, fileContentAsString.size() - param_pos);
             Reqmap[client_fd].content_type = fileContentAsString.substr(Content_type_pos + 12, Content_length_pos - Content_type_pos);
             Reqmap[client_fd].content_length = fileContentAsString.substr(Content_length_pos + 15, Origin_pos - (Content_length_pos + 15));
+            Reqmap[client_fd].http_code = "201 Created";
             FilePath = getFilePath(path);
         } 
         else if (method == "DELETE") 
@@ -381,15 +400,16 @@ void Server::readrequest(int client_fd, size_t pos) {
         } 
         else 
         {
-            Reqmap[client_fd].http_code = "501";
-            sendError(client_fd, "501", pos);
+            Reqmap[client_fd].http_code = "501 Not Implemented";
+            Reqmap[client_fd].cgi_state = 0;
+            sendError(client_fd, "501 Not Implemented", pos);
             this->poll_fds[pos].events = POLLIN;
             return;
         }
         if(FilePath.find("cgi-bin") != std::string::npos)
-            Reqmap[client_fd].cgi_state = true;
+            Reqmap[client_fd].cgi_state = 1;
         else
-            Reqmap[client_fd].cgi_state = false;
+            Reqmap[client_fd].cgi_state = 0;
         Reqmap[client_fd].setFilePath(FilePath);
         this->poll_fds[pos].events = POLLOUT;
     }
@@ -441,8 +461,13 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
     }
     std::string content_type = Reqmap[client_fd].cgi_state ? "text/html; charset=utf-8" : getContentType(real_file_path);
     std::string http_code = Reqmap[client_fd].http_code;
+    if(http_code == "501")
+        content_type = "text/html; charset=UTF-8";
+    std::cout << "cgi_state = " << Reqmap[client_fd].cgi_state << std::endl;
+    std::cout << "HTTP CODE = " << http_code << std::endl;
+    std::cout << "HTTP CODE2 = " << content_type << std::endl;
     std::string http_response =
-        "HTTP/1.1 200 OK\r\n"
+        "HTTP/1.1 " + http_code + " \r\n"
         "Content-Type: " + content_type + "\r\n"
         "Content-Length: " + std::to_string(file_content.size()) + "\r\n"
         "\r\n" + 
@@ -456,7 +481,7 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
 }
 
 std::string Server::getContentType(const std::string& file_path) {
-    if (file_path.substr(file_path.size() - 5) == ".html") return "text/html";
+    if (file_path.substr(file_path.size() - 5) == ".html") return "text/html; charset=UTF-8";
     if (file_path.substr(file_path.size() - 3) == ".py") return "text/html";
     if (file_path.substr(file_path.size() - 4) == ".css") return "text/css";
     if (file_path.substr(file_path.size() - 3) == ".js") return "application/javascript";
@@ -488,8 +513,11 @@ const std::string Server::find_err_path(int serv_fd, int err_code)
     return(err_path);
 }
 
-void Server::sendError(int client_fd, std::string err_code, size_t pos) {
-    std::string err_page_path = find_err_path(Reqmap[client_fd].serv_fd, std::atoi(err_code.c_str()));
+void Server::sendError(int client_fd, std::string err_code, size_t pos) 
+{
+    int int_err_code = std::atoi(err_code.c_str());
+    std::string err_page_path = find_err_path(Reqmap[client_fd].serv_fd, int_err_code);
+    Reqmap[client_fd].http_code = err_code;
     serveFile(client_fd, err_page_path, pos);
     std::string http_response =
         "HTTP/1.1 " + err_code + "Not Found\r\n"
@@ -501,11 +529,21 @@ void Server::sendError(int client_fd, std::string err_code, size_t pos) {
     //send(client_fd, http_response.c_str(), http_response.size(), 0);
     //close_connexion(client_fd, client_fd - all_serv_fd.size() - 1);
 }
-
+int Server::CheckValidHost(std::string host)
+{
+    for(size_t i = 0; i < all_hostname_str.size(); i++)
+    {
+        printf("string = %s\n", all_hostname_str[i].c_str());
+        if(all_hostname_str[i] == host)
+            return(0);
+    }
+    return(1);
+}
 void Server::handlePost(int client_fd, const std::string& request, const std::string& path, size_t request_length, std::vector<unsigned char> data, size_t pos)
 {
     (void) path;
     (void) request_length;
+    int write_rtn;
     size_t boundary_start = request.find("boundary=") + 9;
     size_t boundary_end = request.find("C", boundary_start) - 1; // Find the end of the boundary
     std::string boundary;
@@ -542,8 +580,10 @@ void Server::handlePost(int client_fd, const std::string& request, const std::st
             data[data.size() -1] = 0;
             unsigned char *l = reinterpret_cast<unsigned char*>(&data[file_start]);
             for (size_t i = 0; i < data.size() - file_start - (boundary.size() + 4); i++)
-                write(f, &l[i], 1);
+                write_rtn = write(f, &l[i], 1);
             // Respond back to the client
+            if(write_rtn <= 0)
+                close_connexion(client_fd, pos);
             std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"
                                    "File uploaded successfully";
             send(client_fd, response.c_str(), response.size(), 0);

@@ -55,6 +55,7 @@ int Cgi::get_pid()
 
 std::string Cgi::exec_cgi()
 {
+    int bytes_read;
     std::string content = "";
     if (pipe(this->pipe_fd) == -1) {
         std::cerr << "Error: Unable to create pipe in." << std::endl;
@@ -77,7 +78,15 @@ std::string Cgi::exec_cgi()
             pipe(post_pipe);
 
             dup2(post_pipe[0], 0);
-            write(post_pipe[1], this->post_body.c_str(), this->post_body.size());
+            bytes_read = write(post_pipe[1], this->post_body.c_str(), this->post_body.size());
+            if(bytes_read <= 0)
+            {
+                close(pipe_fd[0]);
+                close(pipe_fd[1]);
+                close(post_pipe[0]);
+                close(post_pipe[1]);
+                exit(1);
+            }
             close(post_pipe[1]);
         }
         std::vector<char*> args;

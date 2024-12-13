@@ -5,7 +5,8 @@ Request::Request(){
 Request::Request(std::string method, std::string request): method(method), request(request)
 {
 }
-Request::~Request(){};
+Request::~Request(){
+};
 
 void    Request::setFilePath(std::string FilePath)
 {

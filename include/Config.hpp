@@ -9,6 +9,7 @@
 struct ServerConfig {
     int port;
     std::string hostname;
+    std::string hostname_str;
     std::string root;
     std::string index;
     std::map <int, std::string> error_pages;

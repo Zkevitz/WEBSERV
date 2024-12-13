@@ -31,6 +31,7 @@ private:
     std::vector <pollfd> poll_fds;
     std::vector <int> all_port;
     std::vector <std::string> all_hostname;
+    std::vector <std::string> all_hostname_str;
     std::vector <sockaddr_in> all_sock_addr;
     std::map<int, Request> Reqmap;
     std::map<int, std::map<int, std::string> > err_pages;
@@ -57,7 +58,8 @@ private:
     void add_client_to_poll(int client_fd);
     void initializePollFds();
     std::string read_cgi_output(int client_fd, size_t i);
-    std::string init_cgi_param(std::string str, Request Req);
+    std::string init_cgi_param(std::string str, Request& Req);
+    int CheckValidHost(std::string host);
     int compare_poll(size_t size);
 
     const char* getHostname(int Vecpos);
