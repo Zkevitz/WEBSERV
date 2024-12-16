@@ -12,6 +12,7 @@ struct ServerConfig {
     std::string hostname_str;
     std::string root;
     std::string index;
+    std::map<int, ssize_t> max_body;
     std::map <int, std::string> error_pages;
 };
 
@@ -35,6 +36,7 @@ private:
     std::string extractRoot(const std::string& line); // New method to extract root
     std::string extractIndex(const std::string& line); // New method to extract index
     std::map <int, std::string> extractErrPages(const std::string &line);
+    std::string extractValue(const std::string& line);
 };
 
 #endif

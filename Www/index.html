@@ -15,7 +15,7 @@
             <button onclick="makeRequest('GET')">Envoyer une requête GET</button>
             <button onclick="makeRequest('POST')">Envoyer une requête POST</button>
             <button onclick="makeRequest('DELETE')">Envoyer une requête DELETE</button>
-            <button onclick="makeRequestOnNewPage('PATCH')">Envoyer une requête PATCH</button>
+            <!-- <button onclick="makeRequestOnNewPage('PATCH')">Envoyer une requête PATCH</button> -->
             <button onclick="window.location.href='http://localhost:8080/cgi-bin/calc.py'">Appeler un CGI</button>
         </div>
 
@@ -38,7 +38,7 @@
              * Envoie une requête PATCH invalide au serveur et remplace le contenu de la page actuelle.
              */
             document.getElementById("sendInvalidPatch").addEventListener("click", () => {
-                fetch("/error_pages/error501.html", {
+                fetch("/", {
                     method: 'PATCH', // Définit la méthode PATCH.
                     body: new URLSearchParams({ param: "Valeur de test" }), // Données de test dans la requête.
                     headers: {
@@ -136,7 +136,7 @@
             })
             .catch(error => {
                 console.error('Erreur:', error);
-                document.getElementById('responseOutput').textContent = `Erreur lors de l'upload: ${error}`;
+               window.location.href = 'http://localhost:8081/error_pages/error501.html';
             });
         }
 

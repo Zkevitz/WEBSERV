@@ -30,7 +30,7 @@ bool Config::parseConfigFile(const std::string& filename) {
 void Config::parseServerBlock(std::ifstream& file) {
     ServerConfig serverConfig;
     std::string line;
-
+    static int i = 0;
     while (std::getline(file, line)) {
         trim(line);
 
@@ -48,7 +48,13 @@ void Config::parseServerBlock(std::ifstream& file) {
         } else if (line.find("error_pages") == 0) {
             std::map <int, std::string> err_page = extractErrPages(line);
             serverConfig.error_pages.insert(err_page.begin(), err_page.end());
+        } else if (line.find("max_body") == 0){
+            ssize_t body = atol(extractValue(line).c_str());
+            serverConfig.max_body[i] = body;
+            i++;
         }
+        if (serverConfig.max_body[i] == 0)
+            serverConfig.max_body[i] = 1000000000;
     }
     servers.push_back(serverConfig);
 }
@@ -81,6 +87,14 @@ int Config::extractPort(const std::string& line) {
     std::string token;
     iss >> token >> token; // Skip "listen" and get port
     return static_cast<int>(std::atoi(token.c_str()));
+}
+
+std::string Config::extractValue(const std::string& line){
+    std::istringstream iss(line);
+    std::string token;
+    iss >> token >> token; // Skip max_body and getv alue
+    
+    return token;
 }
 
 std::string Config::extractServerName(const std::string& line) {

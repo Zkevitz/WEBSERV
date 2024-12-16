@@ -51,10 +51,14 @@ bool Server::bindSocket() {
 
 void    Server::add_serv(ServerConfig newServ)
 {
-   (void)port;
+    (void)port;
+    static int i = 0;;
     all_hostname.push_back(newServ.hostname);
     all_hostname_str.push_back(newServ.hostname_str);
     all_port.push_back(newServ.port);
+    Body_size = newServ.max_body[i];
+    i++;
+    printf("body max : %lu\n", Body_size);
     if(newServ.error_pages.size() > 0)
         err_pages[amount_of_serv + 3] = newServ.error_pages;
     amount_of_serv++;
@@ -105,7 +109,7 @@ std::string Server::read_cgi_output(int client_fd, size_t i)
     close(write_fd);
     while ((bytes_read = read(read_fd, cgi_buffer, sizeof(cgi_buffer) - 1)) > 0) {
         cgi_buffer[bytes_read] = '\0'; // Null-terminate the string
-        std::cout << cgi_buffer << std::endl;
+        //std::cout << cgi_buffer << std::endl;
         content += cgi_buffer;
     }
     if (bytes_read == - 1)
@@ -260,6 +264,7 @@ void Server::acceptConnections() {
                     socklen_t client_addr_len = sizeof(client_address);
                     int client_fd = accept(fd, (struct sockaddr*)&client_address, &client_addr_len);
                     Reqmap[client_fd].serv_fd = fd;
+                    
                     if (errno == EWOULDBLOCK || errno == EAGAIN)
                             continue;
                     if (client_fd < 0) { 
@@ -373,6 +378,13 @@ void Server::readrequest(int client_fd, size_t pos) {
         Reqmap[client_fd].client_fd = client_fd;
         Reqmap[client_fd].bytes_read = fileContent.size();
         std::string FilePath;
+        printf("Reqmap[client_fd].bytes_read %lu\n", Reqmap[client_fd].bytes_read);
+        printf("Body_size : %lu\n", Body_size);
+        if (Reqmap[client_fd].bytes_read >  Body_size)
+        {
+                sendError(client_fd, "413 Entity Too Large", pos);
+                return;
+        }
         if (method == "GET")
         {
             FilePath = getFilePath(path);
@@ -400,7 +412,7 @@ void Server::readrequest(int client_fd, size_t pos) {
         } 
         else 
         {
-            Reqmap[client_fd].http_code = "501 Not Implemented";
+            Reqmap[client_fd].http_code = "501 Not Implemente";
             Reqmap[client_fd].cgi_state = 0;
             sendError(client_fd, "501 Not Implemented", pos);
             this->poll_fds[pos].events = POLLIN;
@@ -459,7 +471,7 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
         file.close();
 
     }
-    std::string content_type = Reqmap[client_fd].cgi_state ? "text/html; charset=utf-8" : getContentType(real_file_path);
+    std::string content_type = Reqmap[client_fd].cgi_state ? "text/html; charset=UTF-8" : getContentType(real_file_path);
     std::string http_code = Reqmap[client_fd].http_code;
     if(http_code == "501")
         content_type = "text/html; charset=UTF-8";
@@ -474,7 +486,7 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
         file_content;
     send(client_fd, http_response.c_str(), http_response.size(), 0);
     Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "client %d reponse envoyer with HTTP code : %s", client_fd, Reqmap[client_fd].http_code.c_str());
-    std::cout << this->poll_fds[pos].fd << std::endl;
+    //std::cout << this->poll_fds[pos].fd << std::endl;
     Reqmap[client_fd].request = "";
     Reqmap[client_fd].data.clear();
     this->poll_fds[pos].events = POLLIN;
@@ -505,7 +517,6 @@ const std::string Server::find_err_path(int serv_fd, int err_code)
     {
         if(err_pages[serv_fd].find(err_code) != err_pages[serv_fd].end())
         {
-            std::cout << "!!!!!" << err_pages[serv_fd][err_code] << std::endl;
             return(err_pages[serv_fd][err_code]);
         }
     }
@@ -519,15 +530,6 @@ void Server::sendError(int client_fd, std::string err_code, size_t pos)
     std::string err_page_path = find_err_path(Reqmap[client_fd].serv_fd, int_err_code);
     Reqmap[client_fd].http_code = err_code;
     serveFile(client_fd, err_page_path, pos);
-    std::string http_response =
-        "HTTP/1.1 " + err_code + "Not Found\r\n"
-        "Content-Type: text/html\r\n"
-        "Content-Length: 13\r\n"
-        "\r\n"
-        "404 Not Found";
-    
-    //send(client_fd, http_response.c_str(), http_response.size(), 0);
-    //close_connexion(client_fd, client_fd - all_serv_fd.size() - 1);
 }
 int Server::CheckValidHost(std::string host)
 {
@@ -571,24 +573,34 @@ void Server::handlePost(int client_fd, const std::string& request, const std::st
         filename_begin += 10; // Length of "Content-Length: "
         size_t end_file_name = request.find("\r\n", filename_begin);
         std::string file_name = request.substr(filename_begin, end_file_name - filename_begin - 1);
+
         // Check if it's a file part
         if (filename_begin != std::string::npos) {
             // Get the file content
             size_t file_start = content_disposition_end + 4; // Skip "\r\n"
             std::string file_path = "./uploads/" +  file_name; // Adjust path as necessary
             int f = open(file_path.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
+           
             data[data.size() -1] = 0;
+            
             unsigned char *l = reinterpret_cast<unsigned char*>(&data[file_start]);
             for (size_t i = 0; i < data.size() - file_start - (boundary.size() + 4); i++)
                 write_rtn = write(f, &l[i], 1);
             // Respond back to the client
             if(write_rtn <= 0)
+            {
                 close_connexion(client_fd, pos);
+                return;
+            }
             std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"
                                    "File uploaded successfully";
+       
             send(client_fd, response.c_str(), response.size(), 0);
+           
             std::cout << this->poll_fds[pos].fd << std::endl;
+            
             Reqmap[client_fd].request = "";
+            
             Reqmap[client_fd].data.clear();
             this->poll_fds[pos].events = POLLIN;
             return;
@@ -604,7 +616,6 @@ void Server::handlePost(int client_fd, const std::string& request, const std::st
 void Server::handleDelete(int client_fd, const std::string& file_path, size_t pos)
 {
     std::string response;
-    std::cout << "FILE PATH = " << file_path << std::endl;
     if (fileExists(file_path))
     {
         if (std::remove(file_path.c_str()) == 0)

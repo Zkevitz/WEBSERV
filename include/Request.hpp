@@ -22,6 +22,7 @@ class Request
         size_t serv_fd;
         size_t client_fd;
 		ssize_t bytes_read;
+        ssize_t max_body_size;
         std::vector <unsigned char> data;
 		char *buffer;
 

@@ -25,6 +25,7 @@ private:
     int server_fd; // File descriptor for the server socket
     size_t amount_of_serv;
     struct sockaddr_in address;
+    ssize_t Body_size;
 
     std::vector <int> all_serv_fd;
     std::vector <int> all_client_fd;
