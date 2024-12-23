@@ -53,7 +53,7 @@ void    Server::add_serv(ServerConfig newServ)
 {
    (void)port;
     all_hostname.push_back(newServ.hostname);
-    all_hostname_str.push_back(newServ.hostname_str);
+    all_hostname_str.push_back(newServ.hostname.c_str());
     all_port.push_back(newServ.port);
     if(newServ.error_pages.size() > 0)
         err_pages[amount_of_serv + 3] = newServ.error_pages;
@@ -226,7 +226,23 @@ int Server::getPort(int Vecpos)
     return(all_port[Vecpos]);
 }
 
-
+void    Server::close_all_fd()
+{
+    std::cout << "yo la vie" << std::endl;
+    size_t i = 0;
+    size_t j = 0;
+    while(i < all_serv_fd.size())
+    {
+        close(this->all_serv_fd[i]);
+        i++;
+    }
+    while(j < all_client_fd.size())
+    {
+        close_connexion(all_client_fd[j], i);
+        j++;
+        i++;
+    }
+}
 void Server::acceptConnections() {
 
     initializePollFds();
@@ -239,6 +255,7 @@ void Server::acceptConnections() {
                 Msg::logMsg(RED, CONSOLE_OUTPUT, "Webserv closing poll...");
             else
                 std::cerr << "webserv: poll error   Closing ...." << std::endl;
+            close_all_fd();
             exit(1);
         }
         for(size_t i = 0; i < poll_fds.size(); i++)
@@ -292,13 +309,7 @@ void Server::acceptConnections() {
             }
         }
         Check_TimeOut();
-        if(!running)
-            break;
     }
-    for (size_t i = 0; i < all_serv_fd.size(); i++)
-        close(this->all_serv_fd[i]);
-    for (size_t i = 0; i < all_client_fd.size(); i++)
-        close(this->all_client_fd[i]);
 }
 
 void Server::readrequest(int client_fd, size_t pos) {
@@ -361,6 +372,7 @@ void Server::readrequest(int client_fd, size_t pos) {
         Reqmap[client_fd].hostname = Reqmap[client_fd].hostname.substr(0, double_point);
         if(CheckValidHost(Reqmap[client_fd].hostname) == 1)
         {
+            Reqmap[client_fd].cgi_state = 0;
             sendError(client_fd, "400 Bad Request", pos);
             return;
         }
@@ -461,8 +473,8 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
     }
     std::string content_type = Reqmap[client_fd].cgi_state ? "text/html; charset=utf-8" : getContentType(real_file_path);
     std::string http_code = Reqmap[client_fd].http_code;
-    if(http_code == "501")
-        content_type = "text/html; charset=UTF-8";
+    if(http_code == "501 Not Implemented")
+        content_type = "application/x-www-form-urlencoded";
     std::cout << "cgi_state = " << Reqmap[client_fd].cgi_state << std::endl;
     std::cout << "HTTP CODE = " << http_code << std::endl;
     std::cout << "HTTP CODE2 = " << content_type << std::endl;
@@ -474,7 +486,6 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
         file_content;
     send(client_fd, http_response.c_str(), http_response.size(), 0);
     Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "client %d reponse envoyer with HTTP code : %s", client_fd, Reqmap[client_fd].http_code.c_str());
-    std::cout << this->poll_fds[pos].fd << std::endl;
     Reqmap[client_fd].request = "";
     Reqmap[client_fd].data.clear();
     this->poll_fds[pos].events = POLLIN;
@@ -531,6 +542,8 @@ void Server::sendError(int client_fd, std::string err_code, size_t pos)
 }
 int Server::CheckValidHost(std::string host)
 {
+    if(host == "localhost")
+        return(0);
     for(size_t i = 0; i < all_hostname_str.size(); i++)
     {
         printf("string = %s\n", all_hostname_str[i].c_str());
@@ -583,7 +596,10 @@ void Server::handlePost(int client_fd, const std::string& request, const std::st
                 write_rtn = write(f, &l[i], 1);
             // Respond back to the client
             if(write_rtn <= 0)
+            {
                 close_connexion(client_fd, pos);
+                return;
+            }
             std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"
                                    "File uploaded successfully";
             send(client_fd, response.c_str(), response.size(), 0);

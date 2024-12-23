@@ -61,6 +61,7 @@ private:
     std::string init_cgi_param(std::string str, Request& Req);
     int CheckValidHost(std::string host);
     int compare_poll(size_t size);
+    void close_all_fd();
 
     const char* getHostname(int Vecpos);
     int getPort(int Vecpos);

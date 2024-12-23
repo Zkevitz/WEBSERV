@@ -39,8 +39,7 @@ void Config::parseServerBlock(std::ifstream& file) {
         if (line.find("listen") == 0) {
             serverConfig.port = extractPort(line);
         } else if (line.find("server_name") == 0) {
-            serverConfig.hostname = "127.0.0.1";
-            serverConfig.hostname_str = extractServerName(line);
+            serverConfig.hostname = extractServerName(line);
         } else if (line.find("root") == 0) {
             serverConfig.root = extractRoot(line);
         } else if (line.find("index") == 0) {
@@ -48,10 +47,75 @@ void Config::parseServerBlock(std::ifstream& file) {
         } else if (line.find("error_pages") == 0) {
             std::map <int, std::string> err_page = extractErrPages(line);
             serverConfig.error_pages.insert(err_page.begin(), err_page.end());
+        } else if (line.find("{") == 0)
+        {
+            serverConfig.location_rules.push_back(parseLocationBlock(file, line));
         }
     }
     servers.push_back(serverConfig);
 }
+
+rules   Config::parseLocationBlock(std::ifstream& file, std::string name) {
+    rules   location_rules;
+    std::string line;
+
+    location_rules.prefix = extractRoot(name);
+    std::getline(file, line);
+    while (std::getline(file, line))
+    {
+        if (line == "}")
+            break;
+        if (line.find("index")) {
+            location_rules.redirect = extractRedirect(line);
+        } else if (line.find("root") == 0) {
+            location_rules.root = extractRoot(line);
+        } else if (line.find("autoindex") == 0) {
+            location_rules.autoindex = extractAutoIndex(line);
+        } else if (line.find("allowed_methods") == 0) {
+            location_rules.allowed_methods = extractMethod(line);
+        } else if (line.find("error_pages") == 0) {
+            std::map <int, std::string> err_page = extractErrPages(line);
+            location_rules.error_pages.insert(err_page.begin(), err_page.end());
+        }
+    }
+
+    return (location_rules);
+}
+
+std::string Config::extractRedirect(const std::string& line) {
+    std::istringstream iss(line);
+    std::string token;
+    iss >> token; // Skip "listen" and get port
+    return token;
+}
+
+bool Config::extractAutoIndex(const std::string& line) {
+    std::istringstream iss(line);
+    std::string token;
+    iss >> token;
+    if (token == "on")
+        return 1;
+    else
+        return 0;
+}
+
+std::vector <std::string> Config::extractMethod(const std::string &line)
+{
+    std::vector <std::string> node;
+    std::istringstream iss(line);
+    std::string token;
+    std::string method;
+
+    iss >> token; // skip
+    iss >> method;
+    while (method != "")
+    {
+        node.push_back(method);
+        iss >> method;
+    }   
+    return node;
+}
+
 std::map <int, std::string> Config::extractErrPages(const std::string &line)
 {
     std::map <int, std::string> node;
@@ -87,8 +151,8 @@ std::string Config::extractServerName(const std::string& line) {
     std::istringstream iss(line);
     std::string token;
     iss >> token >> token; // Skip "server_name" and get name
-    //if (token == "localhost")
-    //token = "127.0.0.1";
+    if (token == "localhost")
+        token = "127.0.0.1";
     return token;
 }
 

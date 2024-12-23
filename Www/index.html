@@ -15,7 +15,7 @@
             <button onclick="makeRequest('GET')">Envoyer une requête GET</button>
             <button onclick="makeRequest('POST')">Envoyer une requête POST</button>
             <button onclick="makeRequest('DELETE')">Envoyer une requête DELETE</button>
-            <button onclick="makeRequestOnNewPage('PATCH')">Envoyer une requête PATCH</button>
+            <!-- <button onclick="makeRequestOnNewPage('PATCH')">Envoyer une requête PATCH</button> -->
             <button onclick="window.location.href='http://localhost:8080/cgi-bin/calc.py'">Appeler un CGI</button>
         </div>
 
@@ -37,35 +37,38 @@
             /**
              * Envoie une requête PATCH invalide au serveur et remplace le contenu de la page actuelle.
              */
-            document.getElementById("sendInvalidPatch").addEventListener("click", () => {
-                fetch("/error_pages/error501.html", {
-                    method: 'PATCH', // Définit la méthode PATCH.
-                    body: new URLSearchParams({ param: "Valeur de test" }), // Données de test dans la requête.
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded', // En-tête approprié.
-                    },
-                })
-                    .then((response) => {
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! Status: ${response.status}`);
-                        }
-                        return response.text(); // Lit la réponse comme texte HTML.
-                    })
-                    .then((data) => {
-                        document.open(); // Prépare la page actuelle pour un nouveau contenu.
-                        document.write(data); // Insère directement le contenu HTML reçu.
-                        document.close(); // Termine l'écriture.
-                    })
-                    .catch((error) => {
-                        // Affiche une page d'erreur simple si la requête échoue.
-                        document.open();
-                        document.write(`
-                            <h1>Erreur lors de la requête :</h1>
-                            <p>${error.message}</p>
-                        `);
-                        document.close();
-                    });
+             document.getElementById("sendInvalidPatch").addEventListener("click", () => {
+                fetch("/", {
+            method: 'PATCH',
+            body: new URLSearchParams({ param: "Valeur de test" }),
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            })
+            .then((response) => {
+                // Tente de lire le corps même en cas d'erreur HTTP.
+                return response.text().then((data) => {
+                    if (!response.ok) {
+                        // Retourne une erreur avec la réponse pour le bloc catch.
+                        throw { status: response.status, statusText: response.statusText, data };
+                    }
+                    return data; // Si pas d'erreur, retourne les données.
+                });
+            })
+            .then((data) => {
+                document.open();
+                document.write(data); // Affiche la réponse HTML.
+                document.close();
+            })
+            .catch((error) => {
+                console.error('Erreur capturée:', error);
+                document.open();
+                // Affiche la réponse HTML même en cas d'erreur.
+                document.write(error.data || `<h1>Erreur ${error.status}</h1><p>${error.statusText}</p>`);
+                document.close();
             });
+        });
+
         </script>
         
 
@@ -101,28 +104,31 @@
             fetch(`/api/resource`, { method: type })
                 .then(response => response.text())
                 .then(data => {
-                    document.getElementById('responseOutput').textContent = `Réponse de la requête ${type}: ${data}`;
+                    document.open(); // Prépare la page actuelle pour un nouveau contenu.
+                    document.write(data); // Insère directement le contenu HTML reçu.
+                    document.close(); // Termine l'écriture.
+                    //document.getElementById('responseOutput').textContent = `Réponse de la requête ${type}: ${data}`;
                 })
                 .catch(error => {
                     console.error('Erreur:', error);
                     document.getElementById('responseOutput').textContent = `Erreur lors de la requête ${type}: ${error}`;
                 });
         }
-        function makeRequestOnNewPage(type) {
-            if (type !== 'POST' && type !== 'GET' && type !== 'DELETE') {
-                window.location.href = 'http://localhost:8081/error_pages/error501.html';
-                return; // Empêche l'exécution des lignes suivantes
-            }
-            fetch(`/api/resource`, { method: type })
-                .then(response => response.text())
-                .then(data => {
-                    document.getElementById('responseOutput').textContent = `Réponse de la requête ${type}: ${data}`;
-                })
-                .catch(error => {
-                    console.error('Erreur:', error);
-                    document.getElementById('responseOutput').textContent = `Erreur lors de la requête ${type}: ${error}`;
-                });
-        }
+        // function makeRequestOnNewPage(type) {
+        //     if (type !== 'POST' && type !== 'GET' && type !== 'DELETE') {
+        //         window.location.href = 'http://google.com';
+        //         return; // Empêche l'exécution des lignes suivantes
+        //     }
+        //     fetch(`/api/resource`, { method: type })
+        //         .then(response => response.text())
+        //         .then(data => {
+        //             document.getElementById('responseOutput').textContent = `Réponse de la requête ${type}: ${data}`;
+        //         })
+        //         .catch(error => {
+        //             console.error('Erreur:', error);
+        //             document.getElementById('responseOutput').textContent = `Erreur lors de la requête ${type}: ${error}`;
+        //         });
+        // }
 
         function uploadFile() {
             const formData = new FormData(document.getElementById('uploadForm'));
