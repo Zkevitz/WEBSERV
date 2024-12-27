@@ -7,6 +7,7 @@
 #include <csignal>
 
 bool running = true;
+ssize_t max_body;
 
 void signalHandler(int signal) {
     if (signal == SIGINT) {
@@ -35,6 +36,7 @@ int main(int argc, char** argv) {
     Server server;
     for (size_t i = 0; i < servers.size(); ++i) {
         const ServerConfig& serverConfig = servers[i];
+
         server.add_serv(serverConfig);
         if (!server.setup()) {
             Msg::logMsg(RED, CONSOLE_OUTPUT, "Error: Failed to set up server on %d : %d", serverConfig.hostname.c_str(), serverConfig.port);

@@ -20,7 +20,6 @@ Cgi::Cgi(std::string path, std::string method, Request Req)
     this->env["REQUEST_METHOD"] = method;
     this->env["SERVER_PROTOCOL"] = "HTTP/1.1";
     this->env["PATH_INFO"] = this->exec_path;
-    std::cout << "voila la method " << method << std::endl;
     if(method == "GET" && i > 0)
         this->env["QUERY_STRING"] = this->query_string;
     else if(method == "POST")
