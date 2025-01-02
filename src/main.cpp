@@ -19,7 +19,19 @@ void signalHandler(int signal) {
     }
 }
 
-
+void    print_location(const std::vector<ServerConfig> servers)
+{
+    for(int i = 0; i < 1; i++)
+    {
+        //printf("prefix = %s\n", servers[i].location_rules[i].prefix.c_str());
+        //printf("redirect = %s\n", servers[i].location_rules[i].redirect.c_str());
+        //printf("root = %s\n", servers[i].location_rules[i].root.c_str());
+        printf("method 1 = %s\n", servers[i].location_rules.allowed_methods[0].c_str());
+        printf("method 2 = %s\n", servers[i].location_rules.allowed_methods[1].c_str());
+        printf("method 3 = %s\n", servers[i].location_rules.allowed_methods[2].c_str());
+       // printf("autoindex = %d\n", servers[i].location_rules[i].autoindex);
+    }
+}
 int main(int argc, char** argv) {
 
     (void)argc;
@@ -34,6 +46,7 @@ int main(int argc, char** argv) {
 
     const std::vector<ServerConfig>& servers = config.getServers();
     Server server;
+    print_location(servers);
     for (size_t i = 0; i < servers.size(); ++i) {
         const ServerConfig& serverConfig = servers[i];
 

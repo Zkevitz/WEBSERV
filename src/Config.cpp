@@ -34,6 +34,7 @@ void Config::parseServerBlock(std::ifstream& file) {
     while (std::getline(file, line)) {
         trim(line);
 
+        
         if (line == "}")
             break;
         if (line.find("listen") == 0) {
@@ -47,9 +48,12 @@ void Config::parseServerBlock(std::ifstream& file) {
         } else if (line.find("error_pages") == 0) {
             std::map <int, std::string> err_page = extractErrPages(line);
             serverConfig.error_pages.insert(err_page.begin(), err_page.end());
-        } else if (line.find("{") == 0)
+        } else if (line.find("max_body") == 0){
+            serverConfig.max_body = extractMaxBody(line);
+        } else if (line.find("location") == 0)
         {
-            serverConfig.location_rules.push_back(parseLocationBlock(file, line));
+            std::cout << "JE PASSE ICI !!" << std::endl;
+            serverConfig.location_rules = parseLocationBlock(file, line);
         }
     }
     servers.push_back(serverConfig);
@@ -60,12 +64,15 @@ rules   Config::parseLocationBlock(std::ifstream& file, std::string name) {
     std::string line;
 
     location_rules.prefix = extractRoot(name);
-    std::getline(file, line);
+    //std::getline(file, line);
     while (std::getline(file, line))
     {
+        trim(line);
+        std::cout << line << std::endl;
         if (line == "}")
             break;
-        if (line.find("index")) {
+        if (line.find("index") == 0) {
+            std::cout << "lolll" << std::endl;
             location_rules.redirect = extractRedirect(line);
         } else if (line.find("root") == 0) {
             location_rules.root = extractRoot(line);
@@ -81,7 +88,16 @@ rules   Config::parseLocationBlock(std::ifstream& file, std::string name) {
 
     return (location_rules);
 }
-
+int Config::extractMaxBody(const std::string &line)
+{
+    std::istringstream iss(line);
+    std::string token;
+    iss >> token >> token;
+    int max_body = std::atoi(token.c_str());
+    if(max_body < 0)
+        max_body = 10000;
+    return(max_body);
+}
 std::string Config::extractRedirect(const std::string& line) {
     std::istringstream iss(line);
     std::string token;
@@ -107,11 +123,10 @@ std::vector <std::string> Config::extractMethod(const std::string &line)
     std::string method;
 
     iss >> token; // skip
-    iss >> method;
-    while (method != "")
+    while (iss >> method)
     {
+        std::cout << "bizarre" << std::endl;
         node.push_back(method);
-        iss >> method;
     }   
     return node;
 }

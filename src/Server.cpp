@@ -52,15 +52,23 @@ bool Server::bindSocket() {
 void    Server::add_serv(ServerConfig newServ)
 {
     (void)port;
-    static int i = 0;;
+    static int i = 0;
+
+
     all_hostname.push_back(newServ.hostname);
     all_hostname_str.push_back(newServ.hostname.c_str());
     all_port.push_back(newServ.port);
-    Body_size = newServ.max_body[i];
-    i++;
-    printf("body max : %lu\n", Body_size);
+
+    location_rules[amount_of_serv + 3] = newServ.location_rules;
+
+    Body_size[amount_of_serv + 3] = newServ.max_body;
+    if(Body_size[amount_of_serv + 3] == 0)
+        Body_size[amount_of_serv + 3] = 10000;
+
+
     if(newServ.error_pages.size() > 0)
         err_pages[amount_of_serv + 3] = newServ.error_pages;
+    i++;
     amount_of_serv++;
 }
 
@@ -114,6 +122,7 @@ std::string Server::read_cgi_output(int client_fd, size_t i)
     }
     if (bytes_read == - 1)
     {
+        wait(&child_status);
         close(read_fd);
         close_connexion(client_fd, i);
         return ("");
@@ -252,7 +261,6 @@ void Server::acceptConnections() {
     initializePollFds();
     while (true) {
         int poll_ret = poll(poll_fds.data(), poll_fds.size(), 1000);  // Timeout en millisecondes
-        //Msg::logMsg(RED, CONSOLE_OUTPUT, "poll_ret = %d", poll_ret);
         if (poll_ret < 0)
         {
             if(!running)
@@ -316,7 +324,10 @@ void Server::acceptConnections() {
         Check_TimeOut();
     }
 }
-
+// void Server::look_for_rules(std::string FilePath)
+// {
+//     if(FilePath.find())
+// }
 void Server::readrequest(int client_fd, size_t pos) {
 
     (void)pos;
@@ -390,9 +401,8 @@ void Server::readrequest(int client_fd, size_t pos) {
         Reqmap[client_fd].client_fd = client_fd;
         Reqmap[client_fd].bytes_read = fileContent.size();
         std::string FilePath;
-        printf("Reqmap[client_fd].bytes_read %lu\n", Reqmap[client_fd].bytes_read);
-        printf("Body_size : %lu\n", Body_size);
-        if (Reqmap[client_fd].bytes_read >  Body_size)
+        printf("Body_size : %lu\n", Body_size[Reqmap[client_fd].serv_fd]);
+        if (Reqmap[client_fd].bytes_read >  Body_size[Reqmap[client_fd].serv_fd])
         {
                 Reqmap[client_fd].cgi_state = 0;
                 sendError(client_fd, "413 Entity Too Large", pos);
@@ -435,6 +445,7 @@ void Server::readrequest(int client_fd, size_t pos) {
             Reqmap[client_fd].cgi_state = 1;
         else
             Reqmap[client_fd].cgi_state = 0;
+        //look_for_rules(FilePath);
         Reqmap[client_fd].setFilePath(FilePath);
         this->poll_fds[pos].events = POLLOUT;
     }

@@ -7,6 +7,7 @@
 
 extern bool running;
 struct ServerConfig;
+struct rules;
 
 class Server {
 public:
@@ -25,8 +26,8 @@ private:
     int server_fd; // File descriptor for the server socket
     size_t amount_of_serv;
     struct sockaddr_in address;
-    ssize_t Body_size;
 
+    std::map <int, ssize_t> Body_size;
     std::vector <int> all_serv_fd;
     std::vector <int> all_client_fd;
     std::vector <pollfd> poll_fds;
@@ -37,6 +38,7 @@ private:
     std::map<int, Request> Reqmap;
     std::map<int, std::map<int, std::string> > err_pages;
     std::map<int, time_t> TimeOutMap;
+    std::map<int, rules> location_rules;
 
 
     // New private methods for static file serving

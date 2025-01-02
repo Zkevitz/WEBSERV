@@ -62,9 +62,9 @@ struct ServerConfig {
     std::string hostname;
     std::string root;
     std::string index;
-    std::map<int, ssize_t> max_body;
+    ssize_t max_body;
     std::map <int, std::string> error_pages;
-    std::vector<rules> location_rules;
+    rules location_rules;
 };
 
 class Config {
@@ -92,6 +92,7 @@ private:
     std::string extractIndex(const std::string& line); // New method to extract index
     std::map <int, std::string> extractErrPages(const std::string &line);
     std::string extractValue(const std::string& line);
+    int extractMaxBody(const std::string &line);
 };
 
 #endif
