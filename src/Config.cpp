@@ -29,12 +29,13 @@ bool Config::parseConfigFile(const std::string& filename) {
 
 void Config::parseServerBlock(std::ifstream& file) {
     ServerConfig serverConfig;
+    static int i = 3;
     std::string line;
 
     while (std::getline(file, line)) {
         trim(line);
 
-        
+
         if (line == "}")
             break;
         if (line.find("listen") == 0) {
@@ -48,9 +49,13 @@ void Config::parseServerBlock(std::ifstream& file) {
         } else if (line.find("error_pages") == 0) {
             std::map <int, std::string> err_page = extractErrPages(line);
             serverConfig.error_pages.insert(err_page.begin(), err_page.end());
-        } else if (line.find("max_body") == 0){
-            serverConfig.max_body = extractMaxBody(line);
-        } else if (line.find("location") == 0)
+        }
+        else if (line.find("max_body") == 0){
+            serverConfig.max_body[i] =  atol(extractValue(line).c_str());
+            printf("serverConfig.max_body[i] = %lu\n", serverConfig.max_body[i]);
+            i++;
+        }
+        else if (line.find("location") == 0)
         {
             std::cout << "JE PASSE ICI !!" << std::endl;
             serverConfig.location_rules = parseLocationBlock(file, line);
@@ -59,11 +64,13 @@ void Config::parseServerBlock(std::ifstream& file) {
     servers.push_back(serverConfig);
 }
 
-rules   Config::parseLocationBlock(std::ifstream& file, std::string name) {
-    rules   location_rules;
+std::map<std::string, rules>   Config::parseLocationBlock(std::ifstream& file, std::string name) {
+    std::map <std::string, rules>   location_rules;
     std::string line;
-
-    location_rules.prefix = extractRoot(name);
+    std::string prefix;
+    prefix = extractRoot(name);
+    location_rules[prefix].prefix = prefix;
+    location_rules[prefix].state = 1;
     //std::getline(file, line);
     while (std::getline(file, line))
     {
@@ -73,42 +80,48 @@ rules   Config::parseLocationBlock(std::ifstream& file, std::string name) {
             break;
         if (line.find("index") == 0) {
             std::cout << "lolll" << std::endl;
-            location_rules.redirect = extractRedirect(line);
+            location_rules[prefix].redirect = extractRedirect(line);
         } else if (line.find("root") == 0) {
-            location_rules.root = extractRoot(line);
+            location_rules[prefix].root = extractRoot(line);
         } else if (line.find("autoindex") == 0) {
-            location_rules.autoindex = extractAutoIndex(line);
+            location_rules[prefix].autoindex = extractAutoIndex(line);
         } else if (line.find("allowed_methods") == 0) {
-            location_rules.allowed_methods = extractMethod(line);
-        } else if (line.find("error_pages") == 0) {
-            std::map <int, std::string> err_page = extractErrPages(line);
-            location_rules.error_pages.insert(err_page.begin(), err_page.end());
+            location_rules[prefix].allowed_methods = extractMethod(line);
         }
     }
 
     return (location_rules);
 }
+
+std::string Config::extractValue(const std::string& line){
+    std::istringstream iss(line);
+    std::string token;
+    iss >> token >> token; // Skip max_body and getv alue
+    
+    return token;
+}
 int Config::extractMaxBody(const std::string &line)
 {
     std::istringstream iss(line);
     std::string token;
+    int max_body = 0;
     iss >> token >> token;
-    int max_body = std::atoi(token.c_str());
-    if(max_body < 0)
+    max_body = std::atoi(token.c_str());
+    if(max_body <= 0)
         max_body = 10000;
     return(max_body);
 }
 std::string Config::extractRedirect(const std::string& line) {
     std::istringstream iss(line);
     std::string token;
-    iss >> token; // Skip "listen" and get port
+    iss >> token >> token;
     return token;
 }
 
 bool Config::extractAutoIndex(const std::string& line) {
     std::istringstream iss(line);
     std::string token;
-    iss >> token;
+    iss >> token >> token;
     if (token == "on")
         return 1;
     else
@@ -175,6 +188,7 @@ std::string Config::extractRoot(const std::string& line) {
     std::istringstream iss(line);
     std::string token;
     iss >> token >> token; // Skip "root" and get path
+    std::cout << "here is my token " << token << std::endl;
     return token;
 }
 

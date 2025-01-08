@@ -134,15 +134,26 @@
             const formData = new FormData(document.getElementById('uploadForm'));
             fetch('/api/upload', {
                 method: 'POST',
-                body: formData
+                body: formData,
             })
-            .then(response => response.text())
+            .then(response => {
+                return response.text().then((data) => {
+                    if (!response.ok) {
+                        // Retourne une erreur avec la réponse pour le bloc catch.
+                        throw { status: response.status, statusText: response.statusText, data };
+                    }
+                    return data; // Si pas d'erreur, retourne les données.
+                });
+            })
             .then(data => {
-                document.getElementById('responseOutput').textContent = `Réponse de l'upload: ${data}`;
+                // Afficher la réponse en cas de succès
+                document.getElementById('responseOutput').textContent = `Réponse de l upload: ${data}`;
             })
             .catch(error => {
                 console.error('Erreur:', error);
-               window.location.href = 'http://localhost:8081/error_pages/error501.html';
+                document.open();
+                document.write(error.data || `<h1>Erreur ${error.status}</h1><p>${error.statusText}</p>`);
+                document.close();
             });
         }
 

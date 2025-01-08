@@ -47,6 +47,7 @@
 #include "Webserv.hpp"
 
 struct rules {
+    bool state;
     std::string prefix;
     std::string redirect;
     std::string root;
@@ -62,9 +63,9 @@ struct ServerConfig {
     std::string hostname;
     std::string root;
     std::string index;
-    ssize_t max_body;
+    std::map<int, ssize_t> max_body;
     std::map <int, std::string> error_pages;
-    rules location_rules;
+    std::map<std::string, rules> location_rules;
 };
 
 class Config {
@@ -81,7 +82,7 @@ private:
     // Helper functions
     void parseLine(const std::string& line);
     void parseServerBlock(std::ifstream& file); // New method for parsing server blocks
-    rules parseLocationBlock(std::ifstream& file, std::string line);
+    std::map<std::string, rules> parseLocationBlock(std::ifstream& file, std::string line);
     void trim(std::string& str); // New method to trim whitespace
     int extractPort(const std::string& line); // New method to extract port
     bool extractAutoIndex(const std::string& line);

@@ -19,16 +19,18 @@ void signalHandler(int signal) {
     }
 }
 
-void    print_location(const std::vector<ServerConfig> servers)
+void    print_location(std::vector<ServerConfig> servers)
 {
+    std::string prefix = "/";
     for(int i = 0; i < 1; i++)
     {
         //printf("prefix = %s\n", servers[i].location_rules[i].prefix.c_str());
-        //printf("redirect = %s\n", servers[i].location_rules[i].redirect.c_str());
+        printf("redirect = %s\n", servers[i].location_rules[prefix].redirect.c_str());
         //printf("root = %s\n", servers[i].location_rules[i].root.c_str());
-        printf("method 1 = %s\n", servers[i].location_rules.allowed_methods[0].c_str());
-        printf("method 2 = %s\n", servers[i].location_rules.allowed_methods[1].c_str());
-        printf("method 3 = %s\n", servers[i].location_rules.allowed_methods[2].c_str());
+        printf("prefix = %s\n", servers[i].location_rules[prefix].prefix.c_str());
+        printf("method 1 = %s\n", servers[i].location_rules[prefix].allowed_methods[0].c_str());
+        printf("method 2 = %s\n", servers[i].location_rules[prefix].allowed_methods[1].c_str());
+        printf("method 3 = %s\n", servers[i].location_rules[prefix].allowed_methods[2].c_str());
        // printf("autoindex = %d\n", servers[i].location_rules[i].autoindex);
     }
 }
