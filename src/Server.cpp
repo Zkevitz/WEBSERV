@@ -124,9 +124,31 @@ std::string Server::read_cgi_output(int client_fd, size_t i)
     ssize_t bytes_read;
 
     close(write_fd);
+    int status;
+    //waitpid(Reqmap[client_fd].cgi_->get_pid(), &status, 0);
+    // if (WIFEXITED(status))
+    // {
+    //     int exitCode = WEXITSTATUS(status);
+    //     if (exitCode != 0)
+    //     {
+    //         std::cerr << "Erreur : le script a retourné un code " << exitCode << "\n";
+    //         wait(&child_status);
+    //         close(read_fd);
+    //         sendError(send_fd, "500 Internal Server Error", i);
+    //         Reqmap[client_fd].cgi_state = 0;
+    //         close_connexion(client_fd, i);
+    //         return "";
+    //     }
+    //     else
+    //         std::cout << "Script exécuté avec succès.\n";
+    // }
+    // else if (WIFSIGNALED(status))
+    // {
+    //     std::cerr << "Erreur : le script a été tué par un signal " << WTERMSIG(status) << "\n";
+    // }
     while ((bytes_read = read(read_fd, cgi_buffer, sizeof(cgi_buffer) - 1)) > 0) {
         cgi_buffer[bytes_read] = '\0'; // Null-terminate the string
-        //std::cout << cgi_buffer << std::endl;
+        //std::cerr << cgi_buffer << std::endl;
         content += cgi_buffer;
     }
     if (bytes_read == - 1)
@@ -138,7 +160,6 @@ std::string Server::read_cgi_output(int client_fd, size_t i)
     }
     wait(&child_status);
     close(read_fd);
-    int status;
     waitpid(Reqmap[client_fd].cgi_->get_pid(), &status, 0);
     std::string http_response =
         "HTTP/1.1 200 OK\r\n"
@@ -154,12 +175,14 @@ std::string Server::read_cgi_output(int client_fd, size_t i)
 std::string Server::init_cgi_param(std::string str, Request& Req)
 {
     Req.cgi_ = new Cgi(str, Req.method, Req);
-
     Req.cgi_->exec_cgi();
     int read_fd = Req.cgi_->get_pipe_fd(0);
-    add_client_to_poll(read_fd);
+    std::cout << "BIG EXIT CODEEEUG " << "exit_code = " << Req.cgi_->exit_code << std::endl;
     Reqmap[read_fd].cgi_state = 2;
     Reqmap[read_fd].cgi_ = Req.cgi_;
+    if(Req.cgi_->exit_code != 0)
+        return "error";
+    add_client_to_poll(read_fd);
     return("");
 }
 
@@ -271,7 +294,7 @@ void Server::acceptConnections() {
 
     initializePollFds();
     while (true) {
-        int poll_ret = poll(poll_fds.data(), poll_fds.size(), 1000);  // Timeout en millisecondes
+        int poll_ret = poll(poll_fds.data(), poll_fds.size(), 1000000000);  // Timeout en millisecondes
         if (poll_ret < 0)
         {
             if(!running)
@@ -294,6 +317,7 @@ void Server::acceptConnections() {
             }
             else if (poll_fds[i].revents & POLLIN)
             {
+                std::cout << "cgi state = " << Reqmap[fd].cgi_state << std::endl;
                 if(std::find(all_serv_fd.begin(), all_serv_fd.end(), fd) != all_serv_fd.end())
                 {
                     struct sockaddr_in client_address;
@@ -311,6 +335,8 @@ void Server::acceptConnections() {
                 }
                 else if(std::find(all_client_fd.begin(), all_client_fd.end(), fd) != all_client_fd.end())
                 {
+                    printf("CGI TRES BIZARRE\n");
+                    std::cout << "CGI TRES BIZARRE" << std::endl;
                     if(Reqmap[fd].cgi_state == 2)
                         read_cgi_output(fd, i);
                     else
@@ -321,6 +347,7 @@ void Server::acceptConnections() {
             {
                 if(std::find(all_client_fd.begin(), all_client_fd.end(), fd) != all_client_fd.end())
                 {
+                    std::cout << "CGI STATE = " << Reqmap[fd].cgi_state << std::endl;
                     std::string method = Reqmap[fd].method;
                     if (method == "GET" || Reqmap[fd].cgi_state == 1) {
                         serveFile(fd, Reqmap[fd].FilePath, i);
@@ -556,10 +583,21 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
     if(Reqmap[client_fd].cgi_state == 1)
     {
             file_content = init_cgi_param(file_path, Reqmap[client_fd]);
-            Reqmap[client_fd].request = "";
-            Reqmap[client_fd].data.clear();
-            this->poll_fds[client_fd - all_serv_fd.size() - 1].events = POLLIN;
-            return;
+            if(file_content.size() == 0)
+            {
+                Reqmap[client_fd].request = "";
+                Reqmap[client_fd].cgi_state = 0;
+                Reqmap[client_fd].data.clear();
+                this->poll_fds[pos].events = POLLIN;
+                std::cout << "CGI STATEMENT = " << Reqmap[client_fd].cgi_state << std::endl;
+                return;
+            }
+            else
+            {
+                std::cout << "CGI STATEMENT = " << Reqmap[client_fd].cgi_state << std::endl;
+                sendError(client_fd, "500 Internal Server Error", pos);
+                return;
+            }
     }
     else
     {
@@ -629,6 +667,7 @@ void Server::sendError(int client_fd, std::string err_code, size_t pos)
 {
     int int_err_code = std::atoi(err_code.c_str());
     std::string err_page_path = find_err_path(Reqmap[client_fd].serv_fd, int_err_code);
+    Reqmap[client_fd].cgi_state = 0;
     Reqmap[client_fd].http_code = err_code;
     serveFile(client_fd, err_page_path, pos);
 }

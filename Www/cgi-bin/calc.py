@@ -6,15 +6,16 @@ import  urllib.parse
 
 
 
-#while True :
- #   time.sleep(1)    
+while True :
+   time.sleep(1)    
 # le header est genere dans le code du serveur
 # print("Content-Type: text/html\r\n\r\n")
 # print("Cache-Control: no-store, no-cache, must-revalidate, max-age=0")
 # print("Pragma: no-cache")
+# while True:
+#     print("")
 query_string = os.environ.get("QUERY_STRING", "")
 params = urllib.parse.parse_qs(query_string)
-
 print("<html><body>")
 print("<h1>Parametres recus (GET) :</h1>")
 print("dic len = ", len(params))

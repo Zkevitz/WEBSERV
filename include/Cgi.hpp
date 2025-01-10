@@ -24,6 +24,7 @@ class Cgi {
         ~Cgi();
         
         int client_fd;
+        int exit_code;
         int get_pipe_fd(int side);
         int get_pid();
         std::string    exec_cgi();

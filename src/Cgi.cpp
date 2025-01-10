@@ -9,6 +9,7 @@ Cgi::Cgi(std::string path, std::string method, Request Req)
     int i = 0;
     this->post_body = "";
     this->client_fd = Req.client_fd;
+    this->exit_code = 0;
     if(path.find_first_of('?') == std::string::npos)
         this->exec_path = path;
     else
@@ -27,6 +28,7 @@ Cgi::Cgi(std::string path, std::string method, Request Req)
         this->env["CONTENT_LENGTH"] = Req.content_length;
         this->env["CONTENT_TYPE"] = Req.content_type;
         this->post_body = Req.body;
+        std::cout << "VOICI MA TAILLE = " << this->post_body.size() << std::endl;
     }
 
     this->char_env = (char **)calloc(sizeof(char *), this->env.size() + 1);
@@ -100,6 +102,28 @@ std::string Cgi::exec_cgi()
         if (execve(this->exec_path.c_str(), args.data(), this->char_env) == -1) {
             std::cerr << "Error: execve failed." << std::endl;
             exit(1);
+        }
+    }
+    sleep(1);
+    int status;
+    pid_t result;
+    result = waitpid(this->pid, &status, WNOHANG);
+    if (result == 0)
+    {
+        this->exit_code = 0;
+        std::cout << "Le processus enfant est toujours en cours d'exécution.\n" << std::endl;
+    }
+    else if (result > 0)
+    {
+        if(WIFEXITED(status))
+        {
+            this->exit_code = WEXITSTATUS(status);
+            std::cerr << "Erreur : le script a retourné un code " << this->exit_code << "\n";
+            return "";
+        }
+        else if (WIFSIGNALED(status))
+        {
+            std::cerr << "Erreur : le script a été tué par un signal " << WTERMSIG(status) << "\n";
         }
     }
     return(content);
