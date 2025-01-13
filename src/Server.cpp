@@ -609,7 +609,7 @@ std::string Server::getFilePath(int client_fd, const std::string& request_path, 
             else
                 file_path += "calc.py";
         }
-        else if(request_path.find("error_pages") == 0)
+        else if(request_path.find("error_pages") != std::string::npos)
         {
             printf("PEUT ETRE ENFIN FINIS\n");
             if(location_rules.find(Reqmap[client_fd].serv_fd) != location_rules.end())
@@ -807,7 +807,7 @@ void Server::handlePost(int client_fd, const std::string& request, const std::st
                 close_connexion(client_fd, pos);
                 return;
             }
-            std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"
+            std::string response = "HTTP/1.1 201 Created\r\nContent-Type: text/html\r\n\r\n"
                                    "File uploaded successfully";
        
             send(client_fd, response.c_str(), response.size(), 0);
@@ -815,9 +815,15 @@ void Server::handlePost(int client_fd, const std::string& request, const std::st
             std::cout << this->poll_fds[pos].fd << std::endl;
             
             Reqmap[client_fd].request = "";
-            
+            Reqmap[client_fd].method = "";
+            Reqmap[client_fd].connexion = "";
+            Reqmap[client_fd].content_length = "";
+            Reqmap[client_fd].content_type = "";
+            Reqmap[client_fd].body = "";
+            Reqmap[client_fd].content_type = "";
+            Reqmap[client_fd].FilePath = "";
             Reqmap[client_fd].data.clear();
-            this->poll_fds[pos].events = POLLIN;
+            this->poll_fds[pos].events = POLLOUT | POLLIN;
             return;
         }
         start = end;

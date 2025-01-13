@@ -131,31 +131,50 @@
         // }
 
         function uploadFile() {
-            const formData = new FormData(document.getElementById('uploadForm'));
-            fetch('/api/upload', {
-                method: 'POST',
-                body: formData,
-            })
-            .then(response => {
-                return response.text().then((data) => {
-                    if (!response.ok) {
-                        // Retourne une erreur avec la réponse pour le bloc catch.
-                        throw { status: response.status, statusText: response.statusText, data };
-                    }
-                    return data; // Si pas d'erreur, retourne les données.
-                });
-            })
-            .then(data => {
-                // Afficher la réponse en cas de succès
-                document.getElementById('responseOutput').textContent = `Réponse de l upload: ${data}`;
-            })
-            .catch(error => {
-                console.error('Erreur:', error);
-                document.open();
-                document.write(error.data || `<h1>Erreur ${error.status}</h1><p>${error.statusText}</p>`);
-                document.close();
-            });
+        const formElement = document.getElementById('uploadForm');
+        const outputElement = document.getElementById('responseOutput');
+
+        if (!formElement) {
+          console.error('Erreur : le formulaire "uploadForm" est introuvable.');
+         return;
         }
+        if (!outputElement) {
+          console.error('Erreur : élément "responseOutput" introuvable.');
+         return;
+        }
+
+        const formData = new FormData(formElement);
+
+        fetch('/api/upload', {
+         method: 'POST',
+         body: formData,
+        })
+            .then(response => {
+              return response.text()
+                  .then((data) => {
+                      if (!response.ok) {
+                         throw { status: response.status, statusText: response.statusText, data };
+                        }
+                     return data;
+                   })
+                  .catch(err => {
+                      console.error('Erreur lors de la lecture de la réponse :', err);
+                      throw { status: response.status, statusText: 'Impossible de lire la réponse', data: null };
+                    });
+         })
+          .then(data => {
+              outputElement.textContent = `Réponse de l'upload: ${data}`;
+          })
+         .catch(error => {
+             console.error('Erreur:', error);
+             outputElement.innerHTML = `
+                 <h1>Erreur ${error.status}</h1>
+                    <p>${error.statusText}</p>
+                    <p>${error.data || ''}</p>
+            `;
+          });
+}
+
 
         function deleteFile() {
             const fileName = document.getElementById('deleteFileName').value;
