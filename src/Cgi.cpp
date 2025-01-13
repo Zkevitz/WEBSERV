@@ -112,6 +112,13 @@ std::string Cgi::exec_cgi()
     {
         this->exit_code = 0;
         std::cout << "Le processus enfant est toujours en cours d'exécution.\n" << std::endl;
+        std::cerr << "Tuer le processus enfant bloqué.\n";
+        if (kill(this->pid, SIGKILL) == -1) {
+            std::cerr << "Erreur : impossible de tuer le processus enfant." << std::endl;
+        } else {
+            std::cerr << "Le processus enfant a été tué avec succès.\n";
+        }
+        return "error";
     }
     else if (result > 0)
     {

@@ -174,13 +174,16 @@ std::string Server::read_cgi_output(int client_fd, size_t i)
 }
 std::string Server::init_cgi_param(std::string str, Request& Req)
 {
+    std::string status = "";
     Req.cgi_ = new Cgi(str, Req.method, Req);
-    Req.cgi_->exec_cgi();
+    if(Req.cgi_->exec_cgi() == "error")
+        status = "error";
     int read_fd = Req.cgi_->get_pipe_fd(0);
+    std::cout << "read fd = " << read_fd << std::endl;
     std::cout << "BIG EXIT CODEEEUG " << "exit_code = " << Req.cgi_->exit_code << std::endl;
     Reqmap[read_fd].cgi_state = 2;
     Reqmap[read_fd].cgi_ = Req.cgi_;
-    if(Req.cgi_->exit_code != 0)
+    if(Req.cgi_->exit_code != 0 || status == "error")
         return "error";
     add_client_to_poll(read_fd);
     return("");
@@ -331,6 +334,7 @@ void Server::acceptConnections() {
                             Msg::logMsg(RED, CONSOLE_OUTPUT, "Error: Failed to accept connection. Errno: %s", strerror(errno));
                             exit(1);
                     }
+                    std::cout << "new client fd = " << client_fd << std::endl;
                     add_client_to_poll(client_fd);
                 }
                 else if(std::find(all_client_fd.begin(), all_client_fd.end(), fd) != all_client_fd.end())
