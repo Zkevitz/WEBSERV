@@ -351,7 +351,7 @@ void Server::acceptConnections() {
             {
                 if(std::find(all_client_fd.begin(), all_client_fd.end(), fd) != all_client_fd.end())
                 {
-                    std::cout << "CGI STATE = " << Reqmap[fd].cgi_state << std::endl;
+                    //std::cout << "CGI STATE = " << Reqmap[fd].cgi_state << std::endl;
                     std::string method = Reqmap[fd].method;
                     if (method == "GET" || Reqmap[fd].cgi_state == 1) {
                         serveFile(fd, Reqmap[fd].FilePath, i);
@@ -493,10 +493,62 @@ void Server::readrequest(int client_fd, size_t pos) {
         this->poll_fds[pos].events = POLLOUT;
     }
 }
+std::string Server::generate_auto_index(std::string path, int client_fd)
+{
+    DIR *dir = opendir(path.c_str());
+    struct dirent *entry;
+    std::vector<std::string> entries;
+    if (!dir)
+    {
+        std::cerr << "Problème lors de l'ouverture du dossier (auto index)" << std::endl;
+        return "";
+    }
+    while ((entry = readdir(dir)) != nullptr)
+    {
+        entries.push_back(std::string(entry->d_name));
+    }
+    closedir(dir);
+    std::string html = "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n"
+                       "<meta charset=\"UTF-8\">\n<title>Index of " + path + "</title>\n"
+                       "<style>\n"
+                       "body { font-family: Arial, sans-serif; padding: 20px; }\n"
+                       "table { width: 100%; border-collapse: collapse; }\n"
+                       "th, td { padding: 10px; border: 1px solid #ccc; }\n"
+                       "th { background-color: #f8f8f8; }\n"
+                       "</style>\n</head>\n<body>\n";
+    html += "<h1>Index of " + path + "</h1>\n";
+    html += "<table>\n<tr><th>Name</th><th>Type</th></tr>\n";
+
+    // Parcourir les entrées pour construire la table HTML
+    for (std::vector<std::string>::iterator it = entries.begin(); it != entries.end(); ++it)
+    {
+        std::string entryName = *it;
+        std::string type = "File";
+        struct stat st;
+        if (stat((path + "/" + entryName).c_str(), &st) == 0)
+        {
+            if (S_ISDIR(st.st_mode))
+                type = "Directory";
+        }
+        html += "<tr><td><a href=\"" + entryName + "\">" + entryName + "</a></td><td>" + type + "</td></tr>\n";
+    }
+    html += "</table>\n</body>\n</html>\n";
+
+    std::string httpResponse = "HTTP/1.1 200 OK\r\n";
+    httpResponse += "Content-Type: text/html\r\n";
+    httpResponse += "Content-Length: " + std::to_string(html.size()) + "\r\n";
+    httpResponse += "Connection: close\r\n\r\n";
+
+    httpResponse += html;
+    send(client_fd, httpResponse.c_str(), httpResponse.size(), 0);
+    return html;
+}
+
 std::string Server::getFilePath(int client_fd, const std::string& request_path, int pos) {
     std::string base_directory = "./www";  // Define the base directory for static files
     std::string file_path = base_directory + request_path;
     std::cout << "Request_path = " << request_path << std::endl;
+    std::cout << "trim Request_path = " << request_path.substr(1, request_path.size()) << std::endl;
     std::cout << "find return = " << request_path.find("cgi-bin") << std::endl;
     if (file_path.back() == '/')
     {
@@ -523,7 +575,11 @@ std::string Server::getFilePath(int client_fd, const std::string& request_path, 
                 }
                 else if(location_rules[Reqmap[client_fd].serv_fd][request_path].autoindex == 1)
                 {
-                    file_path += "index.html";
+                    printf("bizarre l'ambiance\n");
+                    generate_auto_index(file_path, client_fd);
+                    close_connexion(client_fd, pos);
+                    return "";
+                    //file_path += "index.html";
                 }
             }
             else
@@ -536,24 +592,37 @@ std::string Server::getFilePath(int client_fd, const std::string& request_path, 
         else if(request_path.find("cgi-bin") != std::string::npos)
         {
             printf("SECOND PETIT TEST\n");
+            printf("auto index cgi = %d\n", location_rules[Reqmap[client_fd].serv_fd][request_path].autoindex);
             if(location_rules.find(Reqmap[client_fd].serv_fd) != location_rules.end() && location_rules[Reqmap[client_fd].serv_fd][request_path].state == 1)
             {
                 printf("TROISIEME PETIT TEST\n");
                 if(location_rules[Reqmap[client_fd].serv_fd][request_path].redirect.size() > 0)
                     file_path += location_rules[Reqmap[client_fd].serv_fd][request_path].redirect;
             }
-            else
+            else if(location_rules[Reqmap[client_fd].serv_fd][request_path.substr(1 , request_path.size())].autoindex == 1)
             {
                 printf("QUATRIME PETIT TEST\n");
-                file_path += "test.cpp";
+                generate_auto_index(file_path, client_fd);
+                close_connexion(client_fd, pos);
+                return "";
             }
+            else
+                file_path += "calc.py";
         }
         else if(request_path.find("error_pages") == 0)
         {
+            printf("PEUT ETRE ENFIN FINIS\n");
             if(location_rules.find(Reqmap[client_fd].serv_fd) != location_rules.end())
             {
                 if(location_rules[Reqmap[client_fd].serv_fd][request_path].redirect.size() > 0)
                     file_path += location_rules[Reqmap[client_fd].serv_fd][request_path].redirect;
+            }
+            else if(location_rules[Reqmap[client_fd].serv_fd][request_path.substr(1 , request_path.size())].autoindex == 1)
+            {
+                printf("CINQUIEME PETIT TEST\n");
+                generate_auto_index(file_path, client_fd);
+                close_connexion(client_fd, pos);
+                return "";
             }
             else
                 file_path += "error400.html";

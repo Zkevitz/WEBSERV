@@ -12,6 +12,7 @@ class Server;
 #include <netinet/in.h>
 #include <poll.h>
 #include <cstdlib>
+#include <dirent.h>
 
 
 //config.hpp

@@ -25,13 +25,13 @@ void    print_location(std::vector<ServerConfig> servers)
     for(int i = 0; i < 1; i++)
     {
         //printf("prefix = %s\n", servers[i].location_rules[i].prefix.c_str());
-        printf("redirect = %s\n", servers[i].location_rules[prefix].redirect.c_str());
+       // printf("redirect = %s\n", servers[i].location_rules[prefix].redirect.c_str());
         //printf("root = %s\n", servers[i].location_rules[i].root.c_str());
-        printf("prefix = %s\n", servers[i].location_rules[prefix].prefix.c_str());
-        printf("method 1 = %s\n", servers[i].location_rules[prefix].allowed_methods[0].c_str());
-        printf("method 2 = %s\n", servers[i].location_rules[prefix].allowed_methods[1].c_str());
-        printf("method 3 = %s\n", servers[i].location_rules[prefix].allowed_methods[2].c_str());
-       // printf("autoindex = %d\n", servers[i].location_rules[i].autoindex);
+       // printf("prefix = %s\n", servers[i].location_rules[prefix].prefix.c_str());
+       // printf("method 1 = %s\n", servers[i].location_rules[prefix].allowed_methods[0].c_str());
+       // printf("method 2 = %s\n", servers[i].location_rules[prefix].allowed_methods[1].c_str());
+        //printf("method 3 = %s\n", servers[i].location_rules[prefix].allowed_methods[2].c_str());
+        printf("autoindex CONFIRMER ? = %d\n", servers[i].location_rules["cgi-bin/"].autoindex);
     }
 }
 int main(int argc, char** argv) {

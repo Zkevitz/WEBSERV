@@ -66,7 +66,7 @@ private:
     int compare_poll(size_t size);
     void close_all_fd();
     void look_for_rules(int client_fd);
-
+    std::string generate_auto_index(std::string path, int client_fd);
     const char* getHostname(int Vecpos);
     int getPort(int Vecpos);
 };
