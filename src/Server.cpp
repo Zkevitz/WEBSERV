@@ -550,6 +550,9 @@ std::string Server::getFilePath(int client_fd, const std::string& request_path, 
     std::cout << "Request_path = " << request_path << std::endl;
     std::cout << "trim Request_path = " << request_path.substr(1, request_path.size()) << std::endl;
     std::cout << "find return = " << request_path.find("cgi-bin") << std::endl;
+    std::cout << "serveur fd = " << Reqmap[client_fd].serv_fd << std::endl;
+    printf("auto index cgi = %d\n", location_rules[Reqmap[client_fd].serv_fd][request_path.substr(1, request_path.size())].autoindex);
+    std::cout << "location rules state = " << location_rules[Reqmap[client_fd].serv_fd][request_path.substr(1, request_path.size())].state << std::endl;
     if (file_path.back() == '/')
     {
         printf("petit test\n");
@@ -592,7 +595,7 @@ std::string Server::getFilePath(int client_fd, const std::string& request_path, 
         else if(request_path.find("cgi-bin") != std::string::npos)
         {
             printf("SECOND PETIT TEST\n");
-            printf("auto index cgi = %d\n", location_rules[Reqmap[client_fd].serv_fd][request_path].autoindex);
+            printf("auto index cgi = %d\n", location_rules[Reqmap[client_fd].serv_fd][request_path.substr(1, request_path.size())].autoindex);
             if(location_rules.find(Reqmap[client_fd].serv_fd) != location_rules.end() && location_rules[Reqmap[client_fd].serv_fd][request_path].state == 1)
             {
                 printf("TROISIEME PETIT TEST\n");
@@ -612,8 +615,9 @@ std::string Server::getFilePath(int client_fd, const std::string& request_path, 
         else if(request_path.find("error_pages") != std::string::npos)
         {
             printf("PEUT ETRE ENFIN FINIS\n");
-            if(location_rules.find(Reqmap[client_fd].serv_fd) != location_rules.end())
+            if(location_rules.find(Reqmap[client_fd].serv_fd) != location_rules.end() && location_rules[Reqmap[client_fd].serv_fd][request_path].state == 1)
             {
+                printf("YO JE NIQUE TOUT BIEN SUR\n");
                 if(location_rules[Reqmap[client_fd].serv_fd][request_path].redirect.size() > 0)
                     file_path += location_rules[Reqmap[client_fd].serv_fd][request_path].redirect;
             }

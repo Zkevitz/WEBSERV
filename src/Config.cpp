@@ -58,7 +58,8 @@ void Config::parseServerBlock(std::ifstream& file) {
         else if (line.find("location") == 0)
         {
             std::cout << "JE PASSE ICI !!" << std::endl;
-            serverConfig.location_rules = parseLocationBlock(file, line);
+            std::map <std::string, rules> tmp = parseLocationBlock(file, line);
+            serverConfig.location_rules.insert(tmp.begin(), tmp.end());
         }
     }
     servers.push_back(serverConfig);
@@ -69,6 +70,7 @@ std::map<std::string, rules>   Config::parseLocationBlock(std::ifstream& file, s
     std::string line;
     std::string prefix;
     prefix = extractRoot(name);
+    std::cout << "PREFIX ==== " << prefix << std::endl;
     location_rules[prefix].prefix = prefix;
     location_rules[prefix].state = 1;
     //std::getline(file, line);
