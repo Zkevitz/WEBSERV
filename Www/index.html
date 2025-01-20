@@ -81,7 +81,6 @@
             </form>
         </div>
         
-        
         <div class="section">
             <h2>Uploader un fichier</h2>
             <form id="uploadForm" enctype="multipart/form-data">
@@ -91,9 +90,16 @@
         </div>
 
         <div class="section">
+            <h2>download un fichier</h2>
+            <input type="text" id="downloadFileName" placeholder="Nom du fichier à download">
+            <button onclick="downloadFile()">download le fichier</button>
+        </div>
+
+        <div class="section">
             <h2>Supprimer un fichier</h2>
             <input type="text" id="deleteFileName" placeholder="Nom du fichier à supprimer">
             <button onclick="deleteFile()">Supprimer le fichier</button>
+            <pre id="downloadResponse"></pre>
         </div>
 
         <div id="responseOutput"></div>
@@ -175,6 +181,50 @@
           });
 }
 
+function downloadFile() {
+    const fileName = document.getElementById('downloadFileName').value;
+    if (!fileName) {
+        alert('Veuillez entrer le nom du fichier à télécharger.');
+        return;
+    }
+
+    fetch(`uploads/${fileName}`, { method: 'GET' })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Erreur lors du téléchargement: ${response.status} ${response.statusText}`);
+            }
+            return response.blob(); // Récupère le contenu sous forme de Blob
+        })
+        .then(blob => {
+            // Crée un lien temporaire pour télécharger le fichier
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName; // Nom du fichier pour le téléchargement
+            document.body.appendChild(a);
+            a.click(); // Simule un clic pour déclencher le téléchargement
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url); // Libère l'URL créée
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            document.getElementById('responseOutput').textContent = `Erreur lors du téléchargement: ${error.message}`;
+        });
+}
+
+
+        // function downloadFile() {
+        //     const fileName = document.getElementById('downloadFileName').value;
+        //     fetch(`uploads/${fileName}`, { method: 'GET' })
+        //         .then(response => response.text())
+        //         .then(data => {
+        //             document.getElementById('responseOutput').textContent = `Réponse du telechargement: ${data}`;
+        //         })
+        //         .catch(error => {
+        //             console.error('Erreur:', error);
+        //             document.getElementById('responseOutput').textContent = `Erreur lors du telechargement: ${error}`;
+        //         });
+        // }
 
         function deleteFile() {
             const fileName = document.getElementById('deleteFileName').value;

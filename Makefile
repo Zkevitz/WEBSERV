@@ -28,6 +28,7 @@ clean:
 
 fclean: clean
 	rm -f $(NAME)
+	rm -rf logs/*
 
 re: fclean all
 

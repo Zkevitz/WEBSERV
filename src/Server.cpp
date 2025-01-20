@@ -38,6 +38,11 @@ bool Server::createSocket() {
         printf("fd: %d\n", server_fd);
         //return true;
     }
+    int opt = 1;
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
+        close(server_fd);
+        throw std::runtime_error("Failed to set socket options: " + std::string(strerror(errno)));
+    }
     j++;
     return true;
 }
@@ -125,14 +130,23 @@ void    Server::close_connexion(int client_fd, size_t pos)
 
         std::vector<int>::iterator it = all_client_fd.begin();
         (void) it;
+        close(client_fd);
         all_client_fd.erase(all_client_fd.begin() + (pos - all_serv_fd.size()));
         poll_fds.erase(poll_fds.begin() + pos);
         Reqmap.erase(client_fd);
         TimeOutMap.erase(client_fd);
-        close(client_fd);
     }
     
 }
+
+// void Servers::close_connexion(int client_fd) {
+//     if (clientSockets.find(client_fd) != clientSockets.end()) {
+//         close(client_fd);
+//         clientSockets.erase(client_fd);
+//         logMessage("INFO", "Client fd [" + std::to_string(client_fd) + "] closed and removed.");
+//     }
+// }
+
 std::string Server::read_cgi_output(int client_fd, size_t i)
 {
     int child_status;
@@ -571,7 +585,7 @@ std::string Server::generate_auto_index(std::string path, int client_fd)
 }
 
 std::string Server::getFilePath(int client_fd, const std::string& request_path, int pos) {
-    std::string base_directory = "./www";  // Define the base directory for static files
+    std::string base_directory = "./Www";  // Define the base directory for static files
     std::string file_path = base_directory + request_path;
     std::cout << "Request_path = " << request_path << std::endl;
     std::cout << "trim Request_path = " << request_path.substr(1, request_path.size()) << std::endl;
@@ -676,6 +690,7 @@ std::string trim_cgi_param(std::string str)
         return str.substr(0, i);
     }
 }
+
 void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) {
     std::string real_file_path = trim_cgi_param(file_path);
     std::ifstream file(real_file_path.c_str(), std::ios::in | std::ios::binary);
@@ -719,6 +734,7 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
 
     }
     std::string content_type = Reqmap[client_fd].cgi_state ? "text/html; charset=UTF-8" : getContentType(real_file_path);
+    printf("-----------------------------content_type: %s\n",content_type.c_str());
     std::string http_code = Reqmap[client_fd].http_code;
     if(http_code == "501 Not Implemented")
         content_type = "application/x-www-form-urlencoded";
@@ -828,7 +844,7 @@ void Server::handlePost(int client_fd, const std::string& request, const std::st
         if (filename_begin != std::string::npos) {
             // Get the file content
             size_t file_start = content_disposition_end + 4; // Skip "\r\n"
-            std::string file_path = "./uploads/" +  file_name; // Adjust path as necessary
+            std::string file_path = "./Www/uploads/" +  file_name; // Adjust path as necessary
             int f = open(file_path.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
            
             data[data.size() -1] = 0;
@@ -859,6 +875,7 @@ void Server::handlePost(int client_fd, const std::string& request, const std::st
             Reqmap[client_fd].FilePath = "";
             Reqmap[client_fd].data.clear();
             this->poll_fds[pos].events = POLLOUT | POLLIN;
+            close_connexion(client_fd, pos);
             return;
         }
         start = end;
