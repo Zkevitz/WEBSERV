@@ -206,22 +206,46 @@ std::string Server::read_cgi_output(int client_fd, size_t i)
     close_connexion(client_fd, i);
     return(content);
 }
+
+
 std::string Server::init_cgi_param(std::string str, Request& Req)
 {
     std::string status = "";
-    Req.cgi_ = new Cgi(str, Req.method, Req);
-    if(Req.cgi_->exec_cgi() == "error")
+    int read_fd = -1;
+
+    Cgi cgi_instance(str, Req.method, Req);
+    if (cgi_instance.exec_cgi() == "error") {
         status = "error";
-    int read_fd = Req.cgi_->get_pipe_fd(0);
-    std::cout << "read fd = " << read_fd << std::endl;
-    std::cout << "BIG EXIT CODEEEUG " << "exit_code = " << Req.cgi_->exit_code << std::endl;
-    Reqmap[read_fd].cgi_state = 2;
-    Reqmap[read_fd].cgi_ = Req.cgi_;
-    if(Req.cgi_->exit_code != 0 || status == "error")
+    } else {
+        read_fd = cgi_instance.get_pipe_fd(0);
+        Req.cgi_map[read_fd] = std::move(cgi_instance); // Transfert l'instance dans le conteneur
+        Reqmap[read_fd].cgi_state = 2;
+        Reqmap[read_fd].cgi_ = &Req.cgi_map[read_fd]; // Pointeur sûr
+    }
+
+    if (read_fd == -1 || Req.cgi_map[read_fd].exit_code != 0 || status == "error") {
         return "error";
+    }
     add_client_to_poll(read_fd);
-    return("");
+    return "";
 }
+
+// std::string Server::init_cgi_param(std::string str, Request& Req)
+// {
+//     std::string status = "";
+//     Req.cgi_map[0] = new Cgi(str, Req.method, Req);
+//     if(Req.cgi_->exec_cgi() == "error")
+//         status = "error";
+//     int read_fd = Req.cgi_->get_pipe_fd(0);
+//     std::cout << "read fd = " << read_fd << std::endl;
+//     std::cout << "BIG EXIT CODEEEUG " << "exit_code = " << Req.cgi_->exit_code << std::endl;
+//     Reqmap[read_fd].cgi_state = 2;
+//     Reqmap[read_fd].cgi_ = Req.cgi_;
+//     if(Req.cgi_->exit_code != 0 || status == "error")
+//         return "error";
+//     add_client_to_poll(read_fd);
+//     return("");
+// }
 
 bool Server::makeNonBlocking() {
     //muavais flag
@@ -512,7 +536,8 @@ void Server::readrequest(int client_fd, size_t pos) {
             filename_begin += 7;
             size_t end_file_name = fileContentAsString.find("HTTP/1.1", filename_begin);
             std::string file_name = fileContentAsString.substr(filename_begin, end_file_name - filename_begin - 1);
-            FilePath = "./uploads/" +  file_name;
+            //FilePath = "./Www/uploads" + file_name;
+            FilePath = getFilePath(client_fd, path, pos);
         } 
         else 
         {
@@ -889,6 +914,7 @@ void Server::handlePost(int client_fd, const std::string& request, const std::st
 void Server::handleDelete(int client_fd, const std::string& file_path, size_t pos)
 {
     std::string response;
+        printf("file_path: %s\n",file_path.c_str());
     if (fileExists(file_path))
     {
         if (std::remove(file_path.c_str()) == 0)

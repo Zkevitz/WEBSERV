@@ -3,6 +3,7 @@
 
 # include "Webserv.hpp"
 # include "Cgi.hpp"
+# include <map>
 class Cgi;
 
 class Request
@@ -17,6 +18,7 @@ class Request
         std::string http_code;
         std::string hostname;
         std::string body;
+        std::map<int, Cgi> cgi_map;
         Cgi *cgi_;
         int cgi_state;
         size_t serv_fd;
