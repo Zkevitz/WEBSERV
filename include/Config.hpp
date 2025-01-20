@@ -51,6 +51,7 @@ struct rules {
     std::string prefix;
     std::string redirect;
     std::string root;
+    std::string index;
     std::vector<std::string> allowed_methods;
     std::map <int, std::string> error_pages;
     bool autoindex;

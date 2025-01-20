@@ -528,7 +528,10 @@ std::string Server::generate_auto_index(std::string path, int client_fd)
         if (stat((path + "/" + entryName).c_str(), &st) == 0)
         {
             if (S_ISDIR(st.st_mode))
+            {
                 type = "Directory";
+                entryName += "/";
+            }
         }
         html += "<tr><td><a href=\"" + entryName + "\">" + entryName + "</a></td><td>" + type + "</td></tr>\n";
     }
@@ -610,7 +613,12 @@ std::string Server::getFilePath(int client_fd, const std::string& request_path, 
                 return "";
             }
             else
-                file_path += "calc.py";
+            {
+                if(location_rules[Reqmap[client_fd].serv_fd][request_path.substr(1, request_path.size())].index.size() > 0)
+                    file_path += location_rules[Reqmap[client_fd].serv_fd][request_path.substr(1, request_path.size())].index;
+                else
+                    file_path += "calc.py";
+            }
         }
         else if(request_path.find("error_pages") != std::string::npos)
         {

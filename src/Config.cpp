@@ -80,7 +80,10 @@ std::map<std::string, rules>   Config::parseLocationBlock(std::ifstream& file, s
         std::cout << line << std::endl;
         if (line == "}")
             break;
-        if (line.find("index") == 0) {
+        if (line.find("index") == 0){
+            location_rules[prefix].index = extractIndex(line);
+        }
+        if (line.find("return") == 0) {
             std::cout << "lolll" << std::endl;
             location_rules[prefix].redirect = extractRedirect(line);
         } else if (line.find("root") == 0) {
@@ -93,6 +96,18 @@ std::map<std::string, rules>   Config::parseLocationBlock(std::ifstream& file, s
     }
 
     return (location_rules);
+}
+std::string Config::extractIndex(const std::string& line) {
+    std::istringstream iss(line);
+    std::string key, value;
+
+    iss >> key >> value; // Récupère les deux premiers tokens de la ligne
+
+    if (key == "index") { // Vérifie si le premier token est "index"
+        return value;     // Retourne la valeur associée
+    }
+
+    return ""; // Retourne une chaîne vide si "index" n'est pas trouvé
 }
 
 std::string Config::extractValue(const std::string& line){
@@ -191,13 +206,6 @@ std::string Config::extractRoot(const std::string& line) {
     std::string token;
     iss >> token >> token; // Skip "root" and get path
     std::cout << "here is my token " << token << std::endl;
-    return token;
-}
-
-std::string Config::extractIndex(const std::string& line) {
-    std::istringstream iss(line);
-    std::string token;
-    iss >> token >> token; // Skip "index" and get index file
     return token;
 }
 
