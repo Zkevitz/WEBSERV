@@ -61,6 +61,7 @@ struct rules {
 
 struct ServerConfig {
     int port;
+    std::vector<int> listen_ports;
     std::string hostname;
     std::string root;
     std::string index;

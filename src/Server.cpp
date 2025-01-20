@@ -25,39 +25,59 @@ bool Server::setup() {
 }
 
 bool Server::createSocket() {
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_fd == -1) {
-        std::cerr << "Error: Failed to create socket." << std::endl;
-        return false;
+    static int j = 0;
+    printf("nb_ports[j + 3]: %d\n", nb_ports[j + 3]);
+    for (int i = 0; i < nb_ports[j + 3]; i++)
+    {
+        server_fd = socket(AF_INET, SOCK_STREAM, 0);
+        if (server_fd == -1) {
+            std::cerr << "Error: Failed to create socket." << std::endl;
+            return false;
+        }
+        all_serv_fd.push_back(server_fd);
+        printf("fd: %d\n", server_fd);
+        //return true;
     }
-    all_serv_fd.push_back(server_fd);
+    j++;
     return true;
 }
 
 bool Server::bindSocket() {
-   static int i = 0;
-    address.sin_family = AF_INET; // IPv4
-    address.sin_addr.s_addr = inet_addr(all_hostname[i].c_str()); // Use the hostname from config
-    address.sin_port = htons(all_port[i]); // Set the port
-    printf("%s\n", all_hostname[i].c_str());
-    all_sock_addr.push_back(address);
-    if (bind(all_serv_fd[i], (struct sockaddr*)&all_sock_addr[i], sizeof(all_sock_addr[i])) < 0) {
-        perror("bind failed");
-        return false;
-    }
+    static int i = 0;
+    static int j = 0;
+    int compteur = 0;
+    while(compteur < nb_ports[i + 3]){
+        sockaddr_in addr;
+        std::memset(&addr, 0, sizeof(addr));
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+        addr.sin_port = htons(all_port[j]);
+
+        if (bind(all_serv_fd[j], reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) == -1) {
+            close(all_serv_fd[j]);
+            perror("Failed to bind socket");
+            return false;
+        }
+        compteur++;
+        j++;
+    }    
     i++;
     return true;
 }
+
+
 
 void    Server::add_serv(ServerConfig newServ)
 {
     (void)port;
     static int i = 0;
-
-
+    printf("newServ.listen_ports.size(): %lu\n", newServ.listen_ports.size());
+    nb_ports[amount_of_serv + 3] = newServ.listen_ports.size();
     all_hostname.push_back(newServ.hostname);
     all_hostname_str.push_back(newServ.hostname.c_str());
-    all_port.push_back(newServ.port);
+    //all_port.push_back(newServ.port);
+    for (unsigned long i = 0; i < newServ.listen_ports.size(); i++)
+        all_port.push_back(newServ.listen_ports[i]);
 
     printf("parsing size = %lu\n", newServ.location_rules.size());
     printf("amount of serv + 3 = %lu\n", amount_of_serv + 3);
@@ -207,20 +227,22 @@ bool Server::makeNonBlocking() {
 
 void Server::start() {
      // << "AMOUNT OF SERV = " << amount_of_serv << std::endl;
-    for(size_t i = 0; i < amount_of_serv ; i++)
+    for(size_t i = 0; i < all_port.size() ; i++)
     {
+            printf("all_serv_fd[i]: %d\n", all_serv_fd[i]);
         if (listen(all_serv_fd[i], SOMAXCONN) < 0) {
             std::cerr << "Error: Failed to listen on socket." << std::endl;
             return;
         }
-        Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "Server listening on %s : %d", this->getHostname(i), all_port[i]);
+        Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "Server listening on  : %d", all_port[i]);
     }
     acceptConnections();
 }
 
 void Server::initializePollFds()
 {
-    this->poll_fds.clear(); 
+    this->poll_fds.clear();
+    printf("this->all_serv_fd.size(): %lu\n", this->all_serv_fd.size());
     for (size_t i = 0; i < this->all_serv_fd.size(); i++)
     {
         pollfd pfd;
@@ -297,7 +319,7 @@ void Server::acceptConnections() {
 
     initializePollFds();
     while (true) {
-        int poll_ret = poll(poll_fds.data(), poll_fds.size(), 1000000000);  // Timeout en millisecondes
+        int poll_ret = poll(poll_fds.data(), poll_fds.size(), 1000);  // Timeout en millisecondes
         if (poll_ret < 0)
         {
             if(!running)
@@ -325,6 +347,7 @@ void Server::acceptConnections() {
                 {
                     struct sockaddr_in client_address;
                     socklen_t client_addr_len = sizeof(client_address);
+                    printf("fd pour accpet: %d\n", fd);
                     int client_fd = accept(fd, (struct sockaddr*)&client_address, &client_addr_len);
                     Reqmap[client_fd].serv_fd = fd;
                     

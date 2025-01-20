@@ -27,6 +27,10 @@ bool Config::parseConfigFile(const std::string& filename) {
     return true;
 }
 
+void addListenPort(int port, ServerConfig *serverConfig) {
+     serverConfig->listen_ports.push_back(port);
+     }
+
 void Config::parseServerBlock(std::ifstream& file) {
     ServerConfig serverConfig;
     static int i = 3;
@@ -38,8 +42,12 @@ void Config::parseServerBlock(std::ifstream& file) {
 
         if (line == "}")
             break;
-        if (line.find("listen") == 0) {
-            serverConfig.port = extractPort(line);
+        // if (line.find("listen") == 0) {
+        //     serverConfig.port = extractPort(line);
+        // }
+        else if (line.rfind("listen", 0) == 0) {
+            printf("1\n");
+            addListenPort(std::stoi(line.substr(7)), &serverConfig);
         } else if (line.find("server_name") == 0) {
             serverConfig.hostname = extractServerName(line);
         } else if (line.find("root") == 0) {

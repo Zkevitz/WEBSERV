@@ -48,6 +48,7 @@ int main(int argc, char** argv) {
 
     const std::vector<ServerConfig>& servers = config.getServers();
     Server server;
+    printf("ports :%d\n", servers[0].listen_ports[0]);
     print_location(servers);
     for (size_t i = 0; i < servers.size(); ++i) {
         const ServerConfig& serverConfig = servers[i];
