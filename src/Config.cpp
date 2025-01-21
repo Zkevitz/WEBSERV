@@ -40,7 +40,10 @@ void Config::parseServerBlock(std::ifstream& file) {
 
 
         if (line == "}")
+        {
+            i++;
             break;
+        }
         else if (line.rfind("listen", 0) == 0) {
             addListenPort(std::stoi(line.substr(7)), &serverConfig);
         } else if (line.find("server_name") == 0) {
@@ -55,7 +58,6 @@ void Config::parseServerBlock(std::ifstream& file) {
         }
         else if (line.find("max_body") == 0){
             serverConfig.max_body[i] =  atol(extractValue(line).c_str());
-            i++;
         }
         else if (line.find("location") == 0)
         {

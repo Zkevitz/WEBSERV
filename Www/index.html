@@ -10,16 +10,9 @@
 
     <div class="container">
         <h1>Interface pour Requêtes HTTP</h1>
-        
-        <div class="section">
-            <button onclick="makeRequest('GET')">Envoyer une requête GET</button>
-            <button onclick="makeRequest('POST')">Envoyer une requête POST</button>
-            <button onclick="makeRequest('DELETE')">Envoyer une requête DELETE</button>
-            <button onclick="window.location.href='http://localhost:8080/cgi-bin/calc.py'">Appeler un CGI</button>
-        </div>
 
         <div class="section">
-            <h2>Envoyer une requête GET avec Query-String</h2>
+            <h2>Envoyer une requête GET au CGI avec Query-String</h2>
             <form method="GET" action="/cgi-bin/calc.py">
                 <label for="queryParam">Paramètre :</label>
                 <input type="text" id="queryParam" name="param" placeholder="Valeur du paramètre">
@@ -73,7 +66,7 @@
         
 
         <div class="section">
-            <h2>Envoyer une requête POST avec Corps</h2>
+            <h2>Envoyer une requête POST au CGI avec Corps</h2>
             <form method="POST" action="/cgi-bin/post.py">
                 <label for="queryParam">Paramètre :</label>
                 <input type="text" id="queryParam" name="param" placeholder="Valeur du paramètre">

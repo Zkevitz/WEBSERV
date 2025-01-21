@@ -25,6 +25,7 @@ private:
     int biggest_fd;
     int server_fd; // File descriptor for the server socket
     size_t amount_of_serv;
+    size_t amount_of_ports;
     struct sockaddr_in address;
     std::map <int, int> nb_ports;
 

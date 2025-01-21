@@ -13,7 +13,7 @@
 
 Server::Server(const std::string& hostname, int port) : hostname(hostname), port(port), server_fd(-1) {}
 
-Server::Server():amount_of_serv(0){}
+Server::Server():amount_of_serv(0), amount_of_ports(0){}
 
 Server::~Server() {
     if (server_fd != -1)
@@ -81,17 +81,26 @@ void    Server::add_serv(ServerConfig newServ)
         all_port.push_back(newServ.listen_ports[i]);
     if(newServ.location_rules.size() > 0)
     {
-        location_rules[amount_of_serv + 3] = newServ.location_rules;
+        for(size_t i = amount_of_ports; i < newServ.listen_ports.size(); i++)
+        {
+            location_rules[i + 3] = newServ.location_rules;
+        }
     }
-    Body_size[amount_of_serv + 3] = newServ.max_body[amount_of_serv + 3];
-    if(Body_size[amount_of_serv + 3] == 0)
-        Body_size[amount_of_serv + 3] = 10000000000;
+
+    for(size_t i = 0; i < newServ.listen_ports.size(); i++)
+    {
+        Body_size[amount_of_ports + 3] = newServ.max_body[amount_of_serv + 3];
+        if(Body_size[amount_of_ports + 3] == 0)
+            Body_size[amount_of_ports + 3] = 10000000000;
+
+    }
 
 
     if(newServ.error_pages.size() > 0)
         err_pages[amount_of_serv + 3] = newServ.error_pages;
     i++;
     amount_of_serv++;
+    amount_of_ports += newServ.listen_ports.size();
 }
 
 void    Server::Check_TimeOut()
@@ -567,6 +576,8 @@ int Server::check_allowed_method(int serv_fd, std::string method, std::string lo
         else
             return (0);
     }
+    if(location_rules[serv_fd].size() == 0)
+        return 0;
     return 1;
 }
 
@@ -576,7 +587,7 @@ std::string Server::getFilePath(int client_fd, const std::string& request_path, 
     if (check_allowed_method(Reqmap[client_fd].serv_fd, Reqmap[client_fd].method, request_path) != 0)
     {
         file_path = "./www/error_pages/error501.html";
-        return "";
+        return file_path;
     }
     if (file_path.back() == '/' || request_path.find("index.html") != std::string::npos)
     {
@@ -767,7 +778,6 @@ int Server::CheckValidHost(std::string host)
         return(0);
     for(size_t i = 0; i < all_hostname_str.size(); i++)
     {
-        // printf("string = %s\n", all_hostname_str[i].c_str());
         if(all_hostname_str[i] == host)
             return(0);
     }
