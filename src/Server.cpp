@@ -26,7 +26,6 @@ bool Server::setup() {
 
 bool Server::createSocket() {
     static int j = 0;
-    printf("nb_ports[j + 3]: %d\n", nb_ports[j + 3]);
     for (int i = 0; i < nb_ports[j + 3]; i++)
     {
         server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -35,8 +34,6 @@ bool Server::createSocket() {
             return false;
         }
         all_serv_fd.push_back(server_fd);
-        printf("fd: %d\n", server_fd);
-        //return true;
     }
     int opt = 1;
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
@@ -76,25 +73,16 @@ void    Server::add_serv(ServerConfig newServ)
 {
     (void)port;
     static int i = 0;
-    printf("newServ.listen_ports.size(): %lu\n", newServ.listen_ports.size());
     nb_ports[amount_of_serv + 3] = newServ.listen_ports.size();
     all_hostname.push_back(newServ.hostname);
     all_hostname_str.push_back(newServ.hostname.c_str());
     //all_port.push_back(newServ.port);
     for (unsigned long i = 0; i < newServ.listen_ports.size(); i++)
         all_port.push_back(newServ.listen_ports[i]);
-
-    printf("parsing size = %lu\n", newServ.location_rules.size());
-    printf("amount of serv + 3 = %lu\n", amount_of_serv + 3);
     if(newServ.location_rules.size() > 0)
     {
-        printf("one two three\n");
         location_rules[amount_of_serv + 3] = newServ.location_rules;
     }
-    printf("state = %d\n", location_rules[amount_of_serv + 3]["/"].state);
-    printf("bool index = %d\n", location_rules[amount_of_serv + 3]["/"].autoindex);
-    printf("parsing size 2= %lu\n", location_rules[amount_of_serv + 3].size());
-    printf("TEEEEST %s\n", location_rules[amount_of_serv + 3]["/"].redirect.c_str());
     Body_size[amount_of_serv + 3] = newServ.max_body[amount_of_serv + 3];
     if(Body_size[amount_of_serv + 3] == 0)
         Body_size[amount_of_serv + 3] = 10000000000;
@@ -139,14 +127,6 @@ void    Server::close_connexion(int client_fd, size_t pos)
     
 }
 
-// void Servers::close_connexion(int client_fd) {
-//     if (clientSockets.find(client_fd) != clientSockets.end()) {
-//         close(client_fd);
-//         clientSockets.erase(client_fd);
-//         logMessage("INFO", "Client fd [" + std::to_string(client_fd) + "] closed and removed.");
-//     }
-// }
-
 std::string Server::read_cgi_output(int client_fd, size_t i)
 {
     int child_status;
@@ -159,27 +139,6 @@ std::string Server::read_cgi_output(int client_fd, size_t i)
 
     close(write_fd);
     int status;
-    //waitpid(Reqmap[client_fd].cgi_->get_pid(), &status, 0);
-    // if (WIFEXITED(status))
-    // {
-    //     int exitCode = WEXITSTATUS(status);
-    //     if (exitCode != 0)
-    //     {
-    //         std::cerr << "Erreur : le script a retourné un code " << exitCode << "\n";
-    //         wait(&child_status);
-    //         close(read_fd);
-    //         sendError(send_fd, "500 Internal Server Error", i);
-    //         Reqmap[client_fd].cgi_state = 0;
-    //         close_connexion(client_fd, i);
-    //         return "";
-    //     }
-    //     else
-    //         std::cout << "Script exécuté avec succès.\n";
-    // }
-    // else if (WIFSIGNALED(status))
-    // {
-    //     std::cerr << "Erreur : le script a été tué par un signal " << WTERMSIG(status) << "\n";
-    // }
     while ((bytes_read = read(read_fd, cgi_buffer, sizeof(cgi_buffer) - 1)) > 0) {
         cgi_buffer[bytes_read] = '\0'; // Null-terminate the string
         //std::cerr << cgi_buffer << std::endl;
@@ -201,7 +160,9 @@ std::string Server::read_cgi_output(int client_fd, size_t i)
         "Content-Length: " + std::to_string(content.size()) + "\r\n"
         "\r\n" + 
         content;
-    send(send_fd, http_response.c_str(), http_response.size(), 0);
+    if (send(send_fd, http_response.c_str(), http_response.size(), 0) <= 0)
+        close_connexion(client_fd, i);
+    
     Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "client %d reponse envoyer with HTTP code : %s", client_fd, Reqmap[client_fd].http_code.c_str());
     close_connexion(client_fd, i);
     return(content);
@@ -230,23 +191,6 @@ std::string Server::init_cgi_param(std::string str, Request& Req)
     return "";
 }
 
-// std::string Server::init_cgi_param(std::string str, Request& Req)
-// {
-//     std::string status = "";
-//     Req.cgi_map[0] = new Cgi(str, Req.method, Req);
-//     if(Req.cgi_->exec_cgi() == "error")
-//         status = "error";
-//     int read_fd = Req.cgi_->get_pipe_fd(0);
-//     std::cout << "read fd = " << read_fd << std::endl;
-//     std::cout << "BIG EXIT CODEEEUG " << "exit_code = " << Req.cgi_->exit_code << std::endl;
-//     Reqmap[read_fd].cgi_state = 2;
-//     Reqmap[read_fd].cgi_ = Req.cgi_;
-//     if(Req.cgi_->exit_code != 0 || status == "error")
-//         return "error";
-//     add_client_to_poll(read_fd);
-//     return("");
-// }
-
 bool Server::makeNonBlocking() {
     //muavais flag
     int flags = fcntl(server_fd, FD_CLOEXEC, 0);
@@ -264,10 +208,8 @@ bool Server::makeNonBlocking() {
 }
 
 void Server::start() {
-     // << "AMOUNT OF SERV = " << amount_of_serv << std::endl;
     for(size_t i = 0; i < all_port.size() ; i++)
     {
-            printf("all_serv_fd[i]: %d\n", all_serv_fd[i]);
         if (listen(all_serv_fd[i], SOMAXCONN) < 0) {
             std::cerr << "Error: Failed to listen on socket." << std::endl;
             return;
@@ -280,7 +222,6 @@ void Server::start() {
 void Server::initializePollFds()
 {
     this->poll_fds.clear();
-    printf("this->all_serv_fd.size(): %lu\n", this->all_serv_fd.size());
     for (size_t i = 0; i < this->all_serv_fd.size(); i++)
     {
         pollfd pfd;
@@ -336,18 +277,15 @@ int Server::getPort(int Vecpos)
 
 void    Server::close_all_fd()
 {
-    std::cout << "yo la vie" << std::endl;
     size_t i = 0;
     size_t j = 0;
     while(i < all_serv_fd.size())
     {
-        printf("fd -> %d closed \n", this->all_serv_fd[i]);
         close(this->all_serv_fd[i]);
         i++;
     }
     while(j < all_client_fd.size())
     {
-        printf("fd -> %d closed \n", all_client_fd[j]);
         close_connexion(all_client_fd[j], i);
         j++;
         i++;
@@ -380,12 +318,10 @@ void Server::acceptConnections() {
             }
             else if (poll_fds[i].revents & POLLIN)
             {
-                std::cout << "cgi state = " << Reqmap[fd].cgi_state << std::endl;
                 if(std::find(all_serv_fd.begin(), all_serv_fd.end(), fd) != all_serv_fd.end())
                 {
                     struct sockaddr_in client_address;
                     socklen_t client_addr_len = sizeof(client_address);
-                    printf("fd pour accpet: %d\n", fd);
                     int client_fd = accept(fd, (struct sockaddr*)&client_address, &client_addr_len);
                     Reqmap[client_fd].serv_fd = fd;
                     
@@ -395,13 +331,10 @@ void Server::acceptConnections() {
                             Msg::logMsg(RED, CONSOLE_OUTPUT, "Error: Failed to accept connection. Errno: %s", strerror(errno));
                             exit(1);
                     }
-                    std::cout << "new client fd = " << client_fd << std::endl;
                     add_client_to_poll(client_fd);
                 }
                 else if(std::find(all_client_fd.begin(), all_client_fd.end(), fd) != all_client_fd.end())
                 {
-                    printf("CGI TRES BIZARRE\n");
-                    std::cout << "CGI TRES BIZARRE" << std::endl;
                     if(Reqmap[fd].cgi_state == 2)
                         read_cgi_output(fd, i);
                     else
@@ -412,7 +345,6 @@ void Server::acceptConnections() {
             {
                 if(std::find(all_client_fd.begin(), all_client_fd.end(), fd) != all_client_fd.end())
                 {
-                    //std::cout << "CGI STATE = " << Reqmap[fd].cgi_state << std::endl;
                     std::string method = Reqmap[fd].method;
                     if (method == "GET" || Reqmap[fd].cgi_state == 1) {
                         serveFile(fd, Reqmap[fd].FilePath, i);
@@ -454,7 +386,6 @@ void Server::readrequest(int client_fd, size_t pos) {
         std::string request(buffer);
         if(Reqmap[client_fd].data.size() > 0)
         {
-            printf("je suis une requetes fragmenter et je termine mon job la taille de ma requete = %lu\n", Reqmap[client_fd].data.size());
             Reqmap[client_fd].request += request;
             Reqmap[client_fd].data.insert(Reqmap[client_fd].data.end(), buffer, buffer + bytes_read);
             std::string request(Reqmap[client_fd].data.begin(), Reqmap[client_fd].data.end());
@@ -508,8 +439,6 @@ void Server::readrequest(int client_fd, size_t pos) {
         Reqmap[client_fd].body = fileContentAsString.substr(param_pos + 6, fileContentAsString.size() - param_pos);
         Reqmap[client_fd].content_type = fileContentAsString.substr(Content_type_pos + 12, Content_length_pos - Content_type_pos);
         Reqmap[client_fd].content_length = fileContentAsString.substr(Content_length_pos + 15, Origin_pos - (Content_length_pos + 15));
-        printf("Body_size : %lu\n", Body_size[Reqmap[client_fd].serv_fd]);
-        std::cout << "content length = " << Reqmap[client_fd].content_length.c_str() << std::endl;
         if (atoi(Reqmap[client_fd].content_length.c_str()) >  Body_size[Reqmap[client_fd].serv_fd])
         {
                 Reqmap[client_fd].cgi_state = 0;
@@ -536,7 +465,6 @@ void Server::readrequest(int client_fd, size_t pos) {
             filename_begin += 7;
             size_t end_file_name = fileContentAsString.find("HTTP/1.1", filename_begin);
             std::string file_name = fileContentAsString.substr(filename_begin, end_file_name - filename_begin - 1);
-            //FilePath = "./Www/uploads" + file_name;
             FilePath = getFilePath(client_fd, path, pos);
         } 
         else 
@@ -555,7 +483,7 @@ void Server::readrequest(int client_fd, size_t pos) {
         this->poll_fds[pos].events = POLLOUT;
     }
 }
-std::string Server::generate_auto_index(std::string path, int client_fd)
+std::string Server::generate_auto_index(std::string path, int client_fd, size_t pos)
 {
     DIR *dir = opendir(path.c_str());
     struct dirent *entry;
@@ -605,46 +533,69 @@ std::string Server::generate_auto_index(std::string path, int client_fd)
     httpResponse += "Connection: close\r\n\r\n";
 
     httpResponse += html;
-    send(client_fd, httpResponse.c_str(), httpResponse.size(), 0);
+    if(send(client_fd, httpResponse.c_str(), httpResponse.size(), 0) <= 0)
+        close_connexion(client_fd, pos);
     return html;
+}
+
+
+int Server::check_allowed_method(int serv_fd, std::string method, std::string loc)
+{
+    std::string location = loc;
+    if(loc.back() == '/' && loc.size() > 1)
+    {
+        location = loc.substr(1, loc.size());
+    }
+    if(location_rules.find(serv_fd) != location_rules.end())
+    {
+        if(location_rules[serv_fd].find(location) != location_rules[serv_fd].end())
+        {
+            std::vector<std::string> allowed_method = location_rules[serv_fd][location].allowed_methods;
+            if(allowed_method.size() == 0)
+                return 0;
+            for(size_t i = 0; i < allowed_method.size(); i++)
+            {
+                std::string trim_method;
+                if(allowed_method[i].find_first_of(',') != std::string::npos)
+                    trim_method = allowed_method[i].substr(0, allowed_method[i].size() - 1);
+                else
+                    trim_method = allowed_method[i];
+                if(trim_method == method)
+                    return 0;
+            }
+        }
+        else
+            return (0);
+    }
+    return 1;
 }
 
 std::string Server::getFilePath(int client_fd, const std::string& request_path, int pos) {
     std::string base_directory = "./Www";  // Define the base directory for static files
     std::string file_path = base_directory + request_path;
-    std::cout << "Request_path = " << request_path << std::endl;
-    std::cout << "trim Request_path = " << request_path.substr(1, request_path.size()) << std::endl;
-    std::cout << "find return = " << request_path.find("cgi-bin") << std::endl;
-    std::cout << "serveur fd = " << Reqmap[client_fd].serv_fd << std::endl;
-    printf("auto index cgi = %d\n", location_rules[Reqmap[client_fd].serv_fd][request_path.substr(1, request_path.size())].autoindex);
-    std::cout << "location rules state = " << location_rules[Reqmap[client_fd].serv_fd][request_path.substr(1, request_path.size())].state << std::endl;
-    if (file_path.back() == '/')
+    if (check_allowed_method(Reqmap[client_fd].serv_fd, Reqmap[client_fd].method, request_path) != 0)
     {
-        printf("petit test\n");
+        file_path = "./www/error_pages/error501.html";
+        return "";
+    }
+    if (file_path.back() == '/' || request_path.find("index.html") != std::string::npos)
+    {
         if(request_path == "/")
         {   
-            printf("JE DOIS PASSER ICI\n");
             if(location_rules.find(Reqmap[client_fd].serv_fd) != location_rules.end() && location_rules[Reqmap[client_fd].serv_fd][request_path].state == 1)
             {
-                printf("serv_fd = %lu\n", Reqmap[client_fd].serv_fd);
-                printf("size = %lu\n", location_rules[Reqmap[client_fd].serv_fd].size());
-                printf("1 DES DEUX OBLIGER %s\n", location_rules[Reqmap[client_fd].serv_fd][request_path].redirect.c_str());
-                printf("NOUVEAU PRINT = %d\n", location_rules[Reqmap[client_fd].serv_fd][request_path].autoindex);
                 if (location_rules[Reqmap[client_fd].serv_fd][request_path].autoindex == 0)
                 {
-                    Reqmap[client_fd].cgi_state = 0;
-                    sendError(client_fd, "400 Bad Request", pos);
+                    file_path += "index.html";
                     return "";
                 }
                 else if(location_rules[Reqmap[client_fd].serv_fd][request_path].redirect.size() > 0 && location_rules[Reqmap[client_fd].serv_fd][request_path].prefix.size() > 0)
                 {
-                    printf("test = %s\n", location_rules[Reqmap[client_fd].serv_fd][request_path].redirect.c_str());
                     file_path += location_rules[Reqmap[client_fd].serv_fd][request_path].redirect;
                 }
                 else if(location_rules[Reqmap[client_fd].serv_fd][request_path].autoindex == 1)
                 {
-                    printf("bizarre l'ambiance\n");
-                    generate_auto_index(file_path, client_fd);
+                    generate_auto_index(file_path, client_fd, pos);
                     close_connexion(client_fd, pos);
                     return "";
                     //file_path += "index.html";
@@ -652,25 +603,20 @@ std::string Server::getFilePath(int client_fd, const std::string& request_path, 
             }
             else
             {
-                printf("JE SUIS ICI WESH\n");
                 std::string index = "index.html";
                 file_path = file_path + index;
             }
         }
         else if(request_path.find("cgi-bin") != std::string::npos)
         {
-            printf("SECOND PETIT TEST\n");
-            printf("auto index cgi = %d\n", location_rules[Reqmap[client_fd].serv_fd][request_path.substr(1, request_path.size())].autoindex);
             if(location_rules.find(Reqmap[client_fd].serv_fd) != location_rules.end() && location_rules[Reqmap[client_fd].serv_fd][request_path].state == 1)
             {
-                printf("TROISIEME PETIT TEST\n");
                 if(location_rules[Reqmap[client_fd].serv_fd][request_path].redirect.size() > 0)
                     file_path += location_rules[Reqmap[client_fd].serv_fd][request_path].redirect;
             }
             else if(location_rules[Reqmap[client_fd].serv_fd][request_path.substr(1 , request_path.size())].autoindex == 1)
             {
-                printf("QUATRIME PETIT TEST\n");
-                generate_auto_index(file_path, client_fd);
+                generate_auto_index(file_path, client_fd, pos);
                 close_connexion(client_fd, pos);
                 return "";
             }
@@ -684,27 +630,29 @@ std::string Server::getFilePath(int client_fd, const std::string& request_path, 
         }
         else if(request_path.find("error_pages") != std::string::npos)
         {
-            printf("PEUT ETRE ENFIN FINIS\n");
             if(location_rules.find(Reqmap[client_fd].serv_fd) != location_rules.end() && location_rules[Reqmap[client_fd].serv_fd][request_path].state == 1)
             {
-                printf("YO JE NIQUE TOUT BIEN SUR\n");
                 if(location_rules[Reqmap[client_fd].serv_fd][request_path].redirect.size() > 0)
                     file_path += location_rules[Reqmap[client_fd].serv_fd][request_path].redirect;
             }
             else if(location_rules[Reqmap[client_fd].serv_fd][request_path.substr(1 , request_path.size())].autoindex == 1)
             {
-                printf("CINQUIEME PETIT TEST\n");
-                generate_auto_index(file_path, client_fd);
+                generate_auto_index(file_path, client_fd, pos);
                 close_connexion(client_fd, pos);
                 return "";
             }
             else
-                file_path += "error400.html";
+            {
+                if(location_rules[Reqmap[client_fd].serv_fd][request_path.substr(1, request_path.size())].index.size() > 0)
+                    file_path += location_rules[Reqmap[client_fd].serv_fd][request_path.substr(1, request_path.size())].index;
+                else
+                    file_path += "error400.html";
+            }
         }
     }
-    std::cout << "file_path = " << file_path << std::endl; 
     return file_path;
 }
+
 std::string trim_cgi_param(std::string str)
 {
     if(str.find_first_of('?') == std::string::npos)
@@ -719,10 +667,7 @@ std::string trim_cgi_param(std::string str)
 void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) {
     std::string real_file_path = trim_cgi_param(file_path);
     std::ifstream file(real_file_path.c_str(), std::ios::in | std::ios::binary);
-    std::cout << "real_file_path = " << real_file_path << std::endl;
-    std::cout << "file_path = " << file_path << std::endl;
     if (!file.is_open()) {
-        std::cout << "heyo" << std::endl;
         sendError(client_fd, "404", pos);
         return;
     }
@@ -737,12 +682,10 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
                 Reqmap[client_fd].cgi_state = 0;
                 Reqmap[client_fd].data.clear();
                 this->poll_fds[pos].events = POLLIN;
-                std::cout << "CGI STATEMENT = " << Reqmap[client_fd].cgi_state << std::endl;
                 return;
             }
             else
             {
-                std::cout << "CGI STATEMENT = " << Reqmap[client_fd].cgi_state << std::endl;
                 sendError(client_fd, "500 Internal Server Error", pos);
                 return;
             }
@@ -759,20 +702,17 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
 
     }
     std::string content_type = Reqmap[client_fd].cgi_state ? "text/html; charset=UTF-8" : getContentType(real_file_path);
-    printf("-----------------------------content_type: %s\n",content_type.c_str());
     std::string http_code = Reqmap[client_fd].http_code;
     if(http_code == "501 Not Implemented")
         content_type = "application/x-www-form-urlencoded";
-    std::cout << "cgi_state = " << Reqmap[client_fd].cgi_state << std::endl;
-    std::cout << "HTTP CODE = " << http_code << std::endl;
-    std::cout << "HTTP CODE2 = " << content_type << std::endl;
     std::string http_response =
         "HTTP/1.1 " + http_code + " \r\n"
         "Content-Type: " + content_type + "\r\n"
         "Content-Length: " + std::to_string(file_content.size()) + "\r\n"
         "\r\n" + 
         file_content;
-    send(client_fd, http_response.c_str(), http_response.size(), 0);
+    if (send(client_fd, http_response.c_str(), http_response.size(), 0) <= 0)
+        close_connexion(client_fd, pos);
     Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "client %d reponse envoyer with HTTP code : %s", client_fd, Reqmap[client_fd].http_code.c_str());
     Reqmap[client_fd].request = "";
     Reqmap[client_fd].data.clear();
@@ -790,13 +730,14 @@ std::string Server::getContentType(const std::string& file_path) {
     return "multipart/form-data"; // ANCIENNEMENT text/html;
 }
 
-void Server::sendInvalidUploadResponse(int client_fd) {
+void Server::sendInvalidUploadResponse(int client_fd, size_t pos) {
     std::string response = "HTTP/1.1 400 Bad Request\r\n"
                            "Content-Type: text/html\r\n"
                            "Content-Length: 40\r\n"
                            "\r\n"
                            "Invalid file upload";
-    send(client_fd, response.c_str(), response.size(), 0);
+    if (send(client_fd, response.c_str(), response.size(), 0) <= 0)
+        close_connexion(client_fd, pos);
 }
 
 const std::string Server::find_err_path(int serv_fd, int err_code)
@@ -826,7 +767,7 @@ int Server::CheckValidHost(std::string host)
         return(0);
     for(size_t i = 0; i < all_hostname_str.size(); i++)
     {
-        printf("string = %s\n", all_hostname_str[i].c_str());
+        // printf("string = %s\n", all_hostname_str[i].c_str());
         if(all_hostname_str[i] == host)
             return(0);
     }
@@ -846,7 +787,7 @@ void Server::handlePost(int client_fd, const std::string& request, const std::st
     size_t start = request.find(boundary);
     if (start == std::string::npos) {
         std::cerr << "Error: Boundary not found." << std::endl;
-        sendInvalidUploadResponse(client_fd);
+        sendInvalidUploadResponse(client_fd, pos);
         return;
     }
     start += boundary.length();
@@ -855,7 +796,7 @@ void Server::handlePost(int client_fd, const std::string& request, const std::st
         size_t content_disposition_start = request.find("Content-Disposition:", 0);
         if (content_disposition_start == std::string::npos || content_disposition_start >= end) {
             std::cerr << "Error: Content-Disposition not found." << std::endl;
-            sendInvalidUploadResponse(client_fd);
+            sendInvalidUploadResponse(client_fd, pos);
             return;
         }
         size_t content_disposition_end = request.find("\r\n\r\n", content_disposition_start);
@@ -886,9 +827,9 @@ void Server::handlePost(int client_fd, const std::string& request, const std::st
             std::string response = "HTTP/1.1 201 Created\r\nContent-Type: text/html\r\n\r\n"
                                    "File uploaded successfully";
        
-            send(client_fd, response.c_str(), response.size(), 0);
+            if (send(client_fd, response.c_str(), response.size(), 0) <= 0)
+                close_connexion(client_fd, pos);
             Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "client %d reponse envoyer with HTTP code : %s", client_fd, Reqmap[client_fd].http_code.c_str());
-            std::cout << this->poll_fds[pos].fd << std::endl;
             
             Reqmap[client_fd].request = "";
             Reqmap[client_fd].method = "";
@@ -905,38 +846,39 @@ void Server::handlePost(int client_fd, const std::string& request, const std::st
         }
         start = end;
     }
-    sendInvalidUploadResponse(client_fd);
+    sendInvalidUploadResponse(client_fd, pos);
 }
-
-
 
 
 void Server::handleDelete(int client_fd, const std::string& file_path, size_t pos)
 {
     std::string response;
-        printf("file_path: %s\n",file_path.c_str());
     if (fileExists(file_path))
     {
         if (std::remove(file_path.c_str()) == 0)
         {
             response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"
                        "File deleted successfully";
+            Reqmap[client_fd].http_code = "204 No Content";
         }
         else
         {
             response = "HTTP/1.1 500 Not Found\r\nContent-Type: text/html\r\n\r\n"
                    "Internal serveur error";
+            Reqmap[client_fd].http_code = "500 Server Error";
         }
     }
     else
     {
         response = "HTTP/1.1 404 Server Error\r\nContent-Type: text/html\r\n\r\n"
                        "FILE NOT FOUND";
+        Reqmap[client_fd].http_code = "404 Not found";
     }
-    send(client_fd, response.c_str(), response.size(), 0);
+    if (send(client_fd, response.c_str(), response.size(), 0) <= 0)
+        close_connexion(client_fd, pos);
     Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "client %d reponse envoyer with HTTP code : %s", client_fd, Reqmap[client_fd].http_code.c_str());
-    std::cout << this->poll_fds[pos].fd << std::endl;
     Reqmap[client_fd].request = "";
     Reqmap[client_fd].data.clear();
     this->poll_fds[pos].events = POLLIN;
+    close_connexion(client_fd, pos);
 }

@@ -53,7 +53,7 @@ private:
     void sendError(int client_fd, std::string err_code, size_t pos); // Sends all error_page
     void handlePost(int client_fd, const std::string& request, const std::string& path, size_t request_length, std::vector<unsigned char> buffer, size_t pos);
     void handleDelete(int client_fd, const std::string& file_path, size_t pos);
-    void sendInvalidUploadResponse(int client_fd);
+    void sendInvalidUploadResponse(int client_fd, size_t pos);
     // Existing methods
     bool createSocket();
     bool bindSocket();
@@ -67,8 +67,9 @@ private:
     int compare_poll(size_t size);
     void close_all_fd();
     void look_for_rules(int client_fd);
-    std::string generate_auto_index(std::string path, int client_fd);
+    std::string generate_auto_index(std::string path, int client_fd, size_t pos);
     const char* getHostname(int Vecpos);
+    int check_allowed_method(int serv_fd, std::string method, std::string loc);
     int getPort(int Vecpos);
 };
 

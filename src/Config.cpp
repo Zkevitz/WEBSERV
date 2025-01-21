@@ -22,7 +22,6 @@ bool Config::parseConfigFile(const std::string& filename) {
             parseServerBlock(configFile);
         }
     }
-
     configFile.close();
     return true;
 }
@@ -42,11 +41,7 @@ void Config::parseServerBlock(std::ifstream& file) {
 
         if (line == "}")
             break;
-        // if (line.find("listen") == 0) {
-        //     serverConfig.port = extractPort(line);
-        // }
         else if (line.rfind("listen", 0) == 0) {
-            printf("1\n");
             addListenPort(std::stoi(line.substr(7)), &serverConfig);
         } else if (line.find("server_name") == 0) {
             serverConfig.hostname = extractServerName(line);
@@ -60,12 +55,10 @@ void Config::parseServerBlock(std::ifstream& file) {
         }
         else if (line.find("max_body") == 0){
             serverConfig.max_body[i] =  atol(extractValue(line).c_str());
-            printf("serverConfig.max_body[i] = %lu\n", serverConfig.max_body[i]);
             i++;
         }
         else if (line.find("location") == 0)
         {
-            std::cout << "JE PASSE ICI !!" << std::endl;
             std::map <std::string, rules> tmp = parseLocationBlock(file, line);
             serverConfig.location_rules.insert(tmp.begin(), tmp.end());
         }
@@ -78,21 +71,18 @@ std::map<std::string, rules>   Config::parseLocationBlock(std::ifstream& file, s
     std::string line;
     std::string prefix;
     prefix = extractRoot(name);
-    std::cout << "PREFIX ==== " << prefix << std::endl;
     location_rules[prefix].prefix = prefix;
     location_rules[prefix].state = 1;
-    //std::getline(file, line);
     while (std::getline(file, line))
     {
         trim(line);
-        std::cout << line << std::endl;
+
         if (line == "}")
             break;
         if (line.find("index") == 0){
             location_rules[prefix].index = extractIndex(line);
         }
         if (line.find("return") == 0) {
-            std::cout << "lolll" << std::endl;
             location_rules[prefix].redirect = extractRedirect(line);
         } else if (line.find("root") == 0) {
             location_rules[prefix].root = extractRoot(line);
@@ -163,7 +153,6 @@ std::vector <std::string> Config::extractMethod(const std::string &line)
     iss >> token; // skip
     while (iss >> method)
     {
-        std::cout << "bizarre" << std::endl;
         node.push_back(method);
     }   
     return node;
@@ -213,7 +202,6 @@ std::string Config::extractRoot(const std::string& line) {
     std::istringstream iss(line);
     std::string token;
     iss >> token >> token; // Skip "root" and get path
-    std::cout << "here is my token " << token << std::endl;
     return token;
 }
 
