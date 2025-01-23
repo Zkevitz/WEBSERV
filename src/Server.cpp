@@ -28,17 +28,23 @@ bool Server::createSocket() {
     static int j = 0;
     for (int i = 0; i < nb_ports[j + 3]; i++)
     {
+        printf("voici les ports en option reused %d\n", i);
         server_fd = socket(AF_INET, SOCK_STREAM, 0);
         if (server_fd == -1) {
             std::cerr << "Error: Failed to create socket." << std::endl;
             return false;
         }
+        printf("voici les fd en option reused %d\n", server_fd);
         all_serv_fd.push_back(server_fd);
-    }
-    int opt = 1;
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
-        close(server_fd);
-        throw std::runtime_error("Failed to set socket options: " + std::string(strerror(errno)));
+        int opt = 1;
+        if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
+            close(server_fd);
+            throw std::runtime_error("Failed to set socket options: " + std::string(strerror(errno)));
+        }
+        if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) == -1) {
+                close(server_fd);
+                throw std::runtime_error("Failed to set SO_REUSEPORT: " + std::string(strerror(errno)));
+        }
     }
     j++;
     return true;
@@ -89,9 +95,11 @@ void    Server::add_serv(ServerConfig newServ)
 
     for(size_t i = 0; i < newServ.listen_ports.size(); i++)
     {
-        Body_size[amount_of_ports + 3] = newServ.max_body[amount_of_serv + 3];
-        if(Body_size[amount_of_ports + 3] == 0)
-            Body_size[amount_of_ports + 3] = 10000000000;
+        printf("amount of serv + 3 = %lu\n", amount_of_serv + 3);
+        printf("amount of ports + listen_ports size = %lu\n", amount_of_ports + 3 + i);
+        Body_size[amount_of_ports + 3 + i] = newServ.max_body[amount_of_serv + 3];
+        if(Body_size[amount_of_ports + 3 + i] == 0)
+            Body_size[amount_of_ports + 3 + i] = 10000000000;
 
     }
 
@@ -429,6 +437,7 @@ void Server::readrequest(int client_fd, size_t pos) {
         if(CheckValidHost(Reqmap[client_fd].hostname) == 1)
         {
             Reqmap[client_fd].cgi_state = 0;
+            Reqmap[client_fd].error = 1;
             sendError(client_fd, "400 Bad Request", pos);
             return;
         }
@@ -448,6 +457,7 @@ void Server::readrequest(int client_fd, size_t pos) {
         Reqmap[client_fd].body = fileContentAsString.substr(param_pos + 6, fileContentAsString.size() - param_pos);
         Reqmap[client_fd].content_type = fileContentAsString.substr(Content_type_pos + 12, Content_length_pos - Content_type_pos);
         Reqmap[client_fd].content_length = fileContentAsString.substr(Content_length_pos + 15, Origin_pos - (Content_length_pos + 15));
+        printf("body size du server %lu est de %lu\n", Reqmap[client_fd].serv_fd, Body_size[Reqmap[client_fd].serv_fd]);
         if (atoi(Reqmap[client_fd].content_length.c_str()) >  Body_size[Reqmap[client_fd].serv_fd])
         {
                 Reqmap[client_fd].cgi_state = 0;
@@ -598,7 +608,7 @@ std::string Server::getFilePath(int client_fd, const std::string& request_path, 
                 if (location_rules[Reqmap[client_fd].serv_fd][request_path].autoindex == 0)
                 {
                     file_path += "index.html";
-                    return "";
+                    return file_path;
                 }
                 else if(location_rules[Reqmap[client_fd].serv_fd][request_path].redirect.size() > 0 && location_rules[Reqmap[client_fd].serv_fd][request_path].prefix.size() > 0)
                 {

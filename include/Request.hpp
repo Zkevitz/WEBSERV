@@ -27,6 +27,7 @@ class Request
         ssize_t max_body_size;
         std::vector <unsigned char> data;
 		char *buffer;
+        bool error;
 
         Request(std::string method, std::string request);
         void    setFilePath(std::string FilePath);
