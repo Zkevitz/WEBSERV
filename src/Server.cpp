@@ -105,7 +105,12 @@ void    Server::add_serv(ServerConfig newServ)
 
 
     if(newServ.error_pages.size() > 0)
-        err_pages[amount_of_serv + 3] = newServ.error_pages;
+    {
+        for(size_t i = 0; i < newServ.listen_ports.size(); i++)
+        {
+            err_pages[amount_of_ports + 3 + i] = newServ.error_pages;
+        }
+    }
     i++;
     amount_of_serv++;
     amount_of_ports += newServ.listen_ports.size();
@@ -180,7 +185,7 @@ std::string Server::read_cgi_output(int client_fd, size_t i)
     if (send(send_fd, http_response.c_str(), http_response.size(), 0) <= 0)
         close_connexion(client_fd, i);
     
-    Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "client %d reponse envoyer with HTTP code : %s", client_fd, Reqmap[client_fd].http_code.c_str());
+    Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "client %d reponse envoyer with HTTP code : %s", client_fd, Reqmap[send_fd].http_code.c_str());
     close_connexion(client_fd, i);
     return(content);
 }
@@ -363,7 +368,9 @@ void Server::acceptConnections() {
                 if(std::find(all_client_fd.begin(), all_client_fd.end(), fd) != all_client_fd.end())
                 {
                     std::string method = Reqmap[fd].method;
-                    if (method == "GET" || Reqmap[fd].cgi_state == 1) {
+                    if (Reqmap[fd].error == 1){
+                        sendError(fd, Reqmap[fd].http_code, i);
+                    } else if (method == "GET" || Reqmap[fd].cgi_state == 1) {
                         serveFile(fd, Reqmap[fd].FilePath, i);
                     } else if (method == "POST") {
                         handlePost(fd, Reqmap[fd].request, Reqmap[fd].FilePath, Reqmap[fd].bytes_read, Reqmap[fd].data, i); // New function for handling POST requests
@@ -438,7 +445,9 @@ void Server::readrequest(int client_fd, size_t pos) {
         {
             Reqmap[client_fd].cgi_state = 0;
             Reqmap[client_fd].error = 1;
-            sendError(client_fd, "400 Bad Request", pos);
+            Reqmap[client_fd].http_code = "400 Bad Request";
+            this->poll_fds[pos].events = POLLOUT;
+            //sendError(client_fd, "400 Bad Request", pos);
             return;
         }
         connexion = fileContentAsString.substr(connexion_pos + 11 , Referer_pos - connexion_pos);
@@ -461,7 +470,10 @@ void Server::readrequest(int client_fd, size_t pos) {
         if (atoi(Reqmap[client_fd].content_length.c_str()) >  Body_size[Reqmap[client_fd].serv_fd])
         {
                 Reqmap[client_fd].cgi_state = 0;
-                sendError(client_fd, "413 Entity Too Large", pos);
+                Reqmap[client_fd].error = 1;
+                Reqmap[client_fd].http_code = "413 Entity Too Large";
+                this->poll_fds[pos].events = POLLOUT;
+                //sendError(client_fd, "413 Entity Too Large", pos);
                 return;
         }
         if (method == "GET")
@@ -490,8 +502,9 @@ void Server::readrequest(int client_fd, size_t pos) {
         {
             Reqmap[client_fd].http_code = "501 Not Implemented";
             Reqmap[client_fd].cgi_state = 0;
-            sendError(client_fd, "501 Not Implemented", pos);
-            this->poll_fds[pos].events = POLLIN;
+            Reqmap[client_fd].error = 1;
+            //sendError(client_fd, "501 Not Implemented", pos);
+            this->poll_fds[pos].events = POLLOUT;
             return;
         }
         if(FilePath.find("cgi-bin") != std::string::npos)
@@ -558,45 +571,132 @@ std::string Server::generate_auto_index(std::string path, int client_fd, size_t 
 }
 
 
-int Server::check_allowed_method(int serv_fd, std::string method, std::string loc)
-{
-    std::string location = loc;
-    if(loc.back() == '/' && loc.size() > 1)
-    {
-        location = loc.substr(1, loc.size());
+// int Server::check_allowed_method(int serv_fd, std::string method, std::string loc)
+// {
+//     std::string location = loc;
+
+//     // Normalisation de la location (supprime le premier '/' si nécessaire)
+//     if (!loc.empty() && loc.front() == '/') {
+//         location = loc.substr(1); // Supprime le premier caractère '/'
+//     }
+
+//     // Debugging
+//     std::cout << "Normalized location: " << location << std::endl;
+//     printf("2\n");
+//     std::cout << location << std::endl;
+//     if(location_rules.find(serv_fd) != location_rules.end())
+//     {
+//         printf("3\n");
+//         if(location_rules[serv_fd].find(location) != location_rules[serv_fd].end())
+//         {
+//             printf("4\n");
+//             std::vector<std::string> allowed_method = location_rules[serv_fd][location].allowed_methods;
+//             if(allowed_method.size() == 0)
+//                 return 0;
+//             for(size_t i = 0; i < allowed_method.size(); i++)
+//             {
+//                 printf("5\n");
+//                 std::string trim_method;
+//                 if(allowed_method[i].find_first_of(',') != std::string::npos)
+//                     trim_method = allowed_method[i].substr(0, allowed_method[i].size() - 1);
+//                 else
+//                     trim_method = allowed_method[i];
+//                 if(trim_method == method)
+//                     return 0;
+//             }
+//             printf("6\n");
+//         }
+//         else
+//         {
+//             printf("7\n");
+//             return (0);
+//         }
+//         printf("8\n");
+//     }
+//     if(location_rules[serv_fd].size() == 0)
+//         return 0;
+//     printf("9\n");
+//     return 1;
+// }
+int Server::check_allowed_method(int serv_fd, std::string method, std::string loc) {
+    // Normalisation de la location (supprime le premier '/' si nécessaire)
+    std::string normalized_loc = loc;
+    if (!loc.empty() && loc.front() == '/' && loc.size() > 1) {
+        normalized_loc = loc.substr(1); // Supprime le premier caractère '/'
     }
-    if(location_rules.find(serv_fd) != location_rules.end())
-    {
-        if(location_rules[serv_fd].find(location) != location_rules[serv_fd].end())
-        {
-            std::vector<std::string> allowed_method = location_rules[serv_fd][location].allowed_methods;
-            if(allowed_method.size() == 0)
-                return 0;
-            for(size_t i = 0; i < allowed_method.size(); i++)
-            {
-                std::string trim_method;
-                if(allowed_method[i].find_first_of(',') != std::string::npos)
-                    trim_method = allowed_method[i].substr(0, allowed_method[i].size() - 1);
-                else
-                    trim_method = allowed_method[i];
-                if(trim_method == method)
-                    return 0;
+
+    // Debugging
+    std::cout << "Normalized location: " << normalized_loc << std::endl;
+    if (normalized_loc == "index.html")
+        normalized_loc = "/";
+    // Vérifie si des règles de locations existent pour ce serveur
+    if (location_rules.find(serv_fd) == location_rules.end()) {
+        std::cerr << "No location rules for server_fd: " << serv_fd << std::endl;
+        return 0; // Aucune règle, autorise par défaut
+    }
+
+    // Recherche de la location la plus spécifique
+    std::string matched_location = "";
+    size_t max_match_length = 0; // Longueur maximale de la correspondance trouvée
+    for (std::map<std::string, rules>::iterator it = location_rules[serv_fd].begin();
+         it != location_rules[serv_fd].end(); ++it) {
+        const std::string& rule_key = it->first; // Clé de la règle
+
+        // Vérifie si le chemin commence par cette clé
+        if (normalized_loc.find(rule_key) == 0) {
+            size_t match_length = rule_key.length();
+            // Priorise la correspondance la plus longue
+            if (match_length > max_match_length) {
+                max_match_length = match_length;
+                matched_location = rule_key;
             }
         }
-        else
-            return (0);
     }
-    if(location_rules[serv_fd].size() == 0)
-        return 0;
+
+    // Si aucune location ne correspond, retourne par défaut
+    if (matched_location.empty()) {
+        std::cerr << "No matching location found for: " << normalized_loc << std::endl;
+        return 0; // Aucune correspondance, autorise par défaut
+    }
+
+    // Debugging : Affiche uniquement la location trouvée
+    std::cout << "Matched location: " << matched_location << std::endl;
+
+    // Vérifie si la méthode est autorisée pour cette location
+    const std::vector<std::string>& allowed_methods = location_rules[serv_fd][matched_location].allowed_methods;
+    if (allowed_methods.empty()) {
+        std::cerr << "No allowed methods specified for location: " << matched_location << std::endl;
+        return 0; // Aucune méthode spécifiée, autorise par défaut
+    }
+
+    // Vérifie si la méthode spécifiée est autorisée
+    for (std::vector<std::string>::const_iterator it = allowed_methods.begin();
+         it != allowed_methods.end(); ++it) {
+        std::string trimmed_method = *it;
+        if (trimmed_method.back() == ',') { // Supprime la virgule si présente
+            trimmed_method = trimmed_method.substr(0, trimmed_method.size() - 1);
+        }
+        if (trimmed_method == method) {
+            std::cout << "Allowed method for location: " << matched_location << "matched method =" << method <<std::endl;
+            return 0; // Méthode autorisée
+        }
+    }
+
+    // Aucune méthode correspondante trouvée
+    std::cerr << "Method not allowed: " << method << " for location: " << matched_location << std::endl;
     return 1;
 }
+
+
 
 std::string Server::getFilePath(int client_fd, const std::string& request_path, int pos) {
     std::string base_directory = "./Www";  // Define the base directory for static files
     std::string file_path = base_directory + request_path;
     if (check_allowed_method(Reqmap[client_fd].serv_fd, Reqmap[client_fd].method, request_path) != 0)
     {
-        file_path = "./www/error_pages/error501.html";
+        file_path = "./www/error_pages/error405.html";
+        Reqmap[client_fd].http_code = "405 Not Allowed";
+        Reqmap[client_fd].method = "GET";
         return file_path;
     }
     if (file_path.back() == '/' || request_path.find("index.html") != std::string::npos)
@@ -780,6 +880,7 @@ void Server::sendError(int client_fd, std::string err_code, size_t pos)
     std::string err_page_path = find_err_path(Reqmap[client_fd].serv_fd, int_err_code);
     Reqmap[client_fd].cgi_state = 0;
     Reqmap[client_fd].http_code = err_code;
+    Reqmap[client_fd].error = 0;
     serveFile(client_fd, err_page_path, pos);
 }
 int Server::CheckValidHost(std::string host)
