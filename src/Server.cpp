@@ -479,16 +479,16 @@ void Server::readrequest(int client_fd, size_t pos) {
         if (method == "GET")
         {
             FilePath = getFilePath(client_fd ,path, pos);
-            if(FilePath.size() == 0)
-                return;
+            // if(FilePath.size() == 0)
+            //     return;
             Reqmap[client_fd].http_code = "200 OK";
         } 
         else if (method == "POST")
         {
             Reqmap[client_fd].http_code = "201 Created";
             FilePath = getFilePath(client_fd, path, pos);
-            if(FilePath.size() == 0)
-                return;
+            // if(FilePath.size() == 0)
+            //     return;
         } 
         else if (method == "DELETE") 
         {
@@ -567,7 +567,7 @@ std::string Server::generate_auto_index(std::string path, int client_fd, size_t 
     httpResponse += html;
     if(send(client_fd, httpResponse.c_str(), httpResponse.size(), 0) <= 0)
         close_connexion(client_fd, pos);
-    return html;
+    return httpResponse;
 }
 
 
@@ -692,6 +692,7 @@ int Server::check_allowed_method(int serv_fd, std::string method, std::string lo
 std::string Server::getFilePath(int client_fd, const std::string& request_path, int pos) {
     std::string base_directory = "./Www";  // Define the base directory for static files
     std::string file_path = base_directory + request_path;
+    (void)pos;
     if (check_allowed_method(Reqmap[client_fd].serv_fd, Reqmap[client_fd].method, request_path) != 0)
     {
         file_path = "./www/error_pages/error405.html";
@@ -716,9 +717,10 @@ std::string Server::getFilePath(int client_fd, const std::string& request_path, 
                 }
                 else if(location_rules[Reqmap[client_fd].serv_fd][request_path].autoindex == 1)
                 {
-                    generate_auto_index(file_path, client_fd, pos);
-                    close_connexion(client_fd, pos);
-                    return "";
+                    //generate_auto_index(file_path, client_fd, pos);
+                    Reqmap[client_fd].autoindex = 1;
+                    return file_path;
+                    //close_connexion(client_fd, pos);
                     //file_path += "index.html";
                 }
             }
@@ -737,9 +739,11 @@ std::string Server::getFilePath(int client_fd, const std::string& request_path, 
             }
             else if(location_rules[Reqmap[client_fd].serv_fd][request_path.substr(1 , request_path.size())].autoindex == 1)
             {
-                generate_auto_index(file_path, client_fd, pos);
-                close_connexion(client_fd, pos);
-                return "";
+                Reqmap[client_fd].autoindex = 1;
+                return file_path;
+                // generate_auto_index(file_path, client_fd, pos);
+                // close_connexion(client_fd, pos);
+                // return "";
             }
             else
             {
@@ -758,9 +762,11 @@ std::string Server::getFilePath(int client_fd, const std::string& request_path, 
             }
             else if(location_rules[Reqmap[client_fd].serv_fd][request_path.substr(1 , request_path.size())].autoindex == 1)
             {
-                generate_auto_index(file_path, client_fd, pos);
-                close_connexion(client_fd, pos);
-                return "";
+                Reqmap[client_fd].autoindex = 1;
+                return file_path;
+                // generate_auto_index(file_path, client_fd, pos);
+                // close_connexion(client_fd, pos);
+                // return "";
             }
             else
             {
@@ -786,6 +792,13 @@ std::string trim_cgi_param(std::string str)
 }
 
 void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) {
+
+    if (Reqmap[client_fd].autoindex == 1)
+    {
+        generate_auto_index(file_path, client_fd, pos);
+        close_connexion(client_fd, pos);
+        return;
+    }
     std::string real_file_path = trim_cgi_param(file_path);
     std::ifstream file(real_file_path.c_str(), std::ios::in | std::ios::binary);
     if (!file.is_open()) {

@@ -28,6 +28,7 @@ class Request
         std::vector <unsigned char> data;
 		char *buffer;
         bool error;
+        bool autoindex;
 
         Request(std::string method, std::string request);
         void    setFilePath(std::string FilePath);
