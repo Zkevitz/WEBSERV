@@ -43,5 +43,6 @@ class Server;
 
 std::string myItoa(int to_translate);
 bool fileExists (const std::string& f);
+bool is_directory(const std::string& path);
 
 #endif

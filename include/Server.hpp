@@ -48,7 +48,7 @@ private:
     void Check_TimeOut();
     void close_connexion(int client_fd, size_t pos);
     void readrequest(int client_fd, size_t pos); // Handles incoming client requests
-    std::string getFilePath(int client_fd, const std::string& request_path, int pos); // Gets the file path based on the request
+    std::string getFilePath(int client_fd, std::string request_path, int pos); // Gets the file path based on the request
     void serveFile(int client_fd, const std::string& file_path, size_t pos); // Serves the requested file
     std::string getContentType(const std::string& file_path); // Gets the content type based on the file extension
     void sendError(int client_fd, std::string err_code, size_t pos); // Sends all error_page

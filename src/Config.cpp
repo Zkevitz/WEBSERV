@@ -44,7 +44,7 @@ void Config::parseServerBlock(std::ifstream& file) {
             i++;
             break;
         }
-        else if (line.rfind("listen", 0) == 0) {
+        else if (line.rfind("listen", 0) == 0 && line.size() > 6) {
             addListenPort(std::stoi(line.substr(7)), &serverConfig);
         } else if (line.find("server_name") == 0) {
             serverConfig.hostname = extractServerName(line);

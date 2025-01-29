@@ -79,6 +79,11 @@ void    Server::add_serv(ServerConfig newServ)
 {
     (void)port;
     static int i = 0;
+    if (newServ.listen_ports.size() == 0)
+    {
+        std::cerr << "All Servers need to get at leat one port" << std::endl;
+        exit(1);
+    }
     nb_ports[amount_of_serv + 3] = newServ.listen_ports.size();
     all_hostname.push_back(newServ.hostname);
     all_hostname_str.push_back(newServ.hostname.c_str());
@@ -627,7 +632,7 @@ int Server::check_allowed_method(int serv_fd, std::string method, std::string lo
 
     // Debugging
     std::cout << "Normalized location: " << normalized_loc << std::endl;
-    if (normalized_loc == "index.html")
+    if (normalized_loc == "index.html" || normalized_loc == "api/upload" || normalized_loc.find("uploads") != std::string::npos)
         normalized_loc = "/";
     // Vérifie si des règles de locations existent pour ce serveur
     if (location_rules.find(serv_fd) == location_rules.end()) {
@@ -689,10 +694,15 @@ int Server::check_allowed_method(int serv_fd, std::string method, std::string lo
 
 
 
-std::string Server::getFilePath(int client_fd, const std::string& request_path, int pos) {
+std::string Server::getFilePath(int client_fd, std::string request_path, int pos) {
     std::string base_directory = "./Www";  // Define the base directory for static files
     std::string file_path = base_directory + request_path;
     (void)pos;
+    if (is_directory(file_path) == true && file_path.back() != '/')
+    {
+        file_path += "/";
+        request_path += "/";
+    }
     if (check_allowed_method(Reqmap[client_fd].serv_fd, Reqmap[client_fd].method, request_path) != 0)
     {
         file_path = "./www/error_pages/error405.html";
