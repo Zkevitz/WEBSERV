@@ -812,7 +812,7 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
     std::string real_file_path = trim_cgi_param(file_path);
     std::ifstream file(real_file_path.c_str(), std::ios::in | std::ios::binary);
     if (!file.is_open()) {
-        sendError(client_fd, "404", pos);
+        sendError(client_fd, "404 Not Found", pos);
         return;
     }
     std::string file_content;
@@ -888,7 +888,7 @@ const std::string Server::find_err_path(int serv_fd, int err_code)
 {
     if(err_pages.find(serv_fd) != err_pages.end())
     {
-        if(err_pages[serv_fd].find(err_code) != err_pages[serv_fd].end())
+        if(err_pages[serv_fd].find(err_code) != err_pages[serv_fd].end() && !err_pages[serv_fd][err_code].empty())
         {
             return(err_pages[serv_fd][err_code]);
         }
