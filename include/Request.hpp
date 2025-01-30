@@ -16,6 +16,7 @@ class Request
         std::string content_type;
         std::string content_length;
         std::string http_code;
+        std::string cgi_content;
         std::string hostname;
         std::string body;
         std::map<int, Cgi> cgi_map;

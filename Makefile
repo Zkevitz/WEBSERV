@@ -11,7 +11,8 @@ SRCDIR = src
 INCDIR = include
 
 # Source files
-SRC = $(SRCDIR)/main.cpp $(SRCDIR)/Config.cpp $(SRCDIR)/Server.cpp $(SRCDIR)/Cgi.cpp $(SRCDIR)/Msg.cpp $(SRCDIR)/Request.cpp $(SRCDIR)/utils.cpp
+# Rules
+SRC = $(SRCDIR)/main.cpp $(SRCDIR)/Config.cpp $(SRCDIR)/Server.cpp $(SRCDIR)/Cgi.cpp $(SRCDIR)/Server_request.cpp $(SRCDIR)/Msg.cpp $(SRCDIR)/Request.cpp $(SRCDIR)/utils.cpp
 
 # Object files
 OBJ = $(SRC:.cpp=.o)

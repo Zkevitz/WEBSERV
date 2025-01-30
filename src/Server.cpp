@@ -187,12 +187,16 @@ std::string Server::read_cgi_output(int client_fd, size_t i)
         "Content-Length: " + std::to_string(content.size()) + "\r\n"
         "\r\n" + 
         content;
-    if (send(send_fd, http_response.c_str(), http_response.size(), 0) <= 0)
-        close_connexion(client_fd, i);
+    Reqmap[send_fd].cgi_content = http_response;
+    Reqmap[send_fd].cgi_state = 2;
+    this->poll_fds[i - 1].events = POLLOUT;
     
-    Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "client %d reponse envoyer with HTTP code : %s", client_fd, Reqmap[send_fd].http_code.c_str());
+    //if (send(send_fd, http_response.c_str(), http_response.size(), 0) <= 0)
+    //    close_connexion(client_fd, i);
+    
+    Msg::logMsg(LIGHT_BLUE, CONSOLE_OUTPUT, "CGI closing fd : {%d}", client_fd);
     close_connexion(client_fd, i);
-    return(content);
+    return(http_response);
 }
 
 
@@ -207,7 +211,7 @@ std::string Server::init_cgi_param(std::string str, Request& Req)
     } else {
         read_fd = cgi_instance.get_pipe_fd(0);
         Req.cgi_map[read_fd] = std::move(cgi_instance); // Transfert l'instance dans le conteneur
-        Reqmap[read_fd].cgi_state = 2;
+        Reqmap[read_fd].cgi_state = 1;
         Reqmap[read_fd].cgi_ = &Req.cgi_map[read_fd]; // Pointeur sûr
     }
 
@@ -362,7 +366,7 @@ void Server::acceptConnections() {
                 }
                 else if(std::find(all_client_fd.begin(), all_client_fd.end(), fd) != all_client_fd.end())
                 {
-                    if(Reqmap[fd].cgi_state == 2)
+                    if(Reqmap[fd].cgi_state == 1)
                         read_cgi_output(fd, i);
                     else
                         readrequest(fd, i);
@@ -373,9 +377,11 @@ void Server::acceptConnections() {
                 if(std::find(all_client_fd.begin(), all_client_fd.end(), fd) != all_client_fd.end())
                 {
                     std::string method = Reqmap[fd].method;
-                    if (Reqmap[fd].error == 1){
+                    if (Reqmap[fd].cgi_state == 2){
+                        sendCgiResponse(fd, i);
+                    }else if (Reqmap[fd].error == 1){
                         sendError(fd, Reqmap[fd].http_code, i);
-                    } else if (method == "GET" || Reqmap[fd].cgi_state == 1) {
+                    } else if (method == "GET") {
                         serveFile(fd, Reqmap[fd].FilePath, i);
                     } else if (method == "POST") {
                         handlePost(fd, Reqmap[fd].request, Reqmap[fd].FilePath, Reqmap[fd].bytes_read, Reqmap[fd].data, i); // New function for handling POST requests
@@ -512,11 +518,28 @@ void Server::readrequest(int client_fd, size_t pos) {
             this->poll_fds[pos].events = POLLOUT;
             return;
         }
+        Reqmap[client_fd].setFilePath(FilePath);
         if(FilePath.find("cgi-bin") != std::string::npos)
+        {
             Reqmap[client_fd].cgi_state = 1;
+            std::string status;
+            status = init_cgi_param(FilePath, Reqmap[client_fd]);
+            if(status.size() == 0)
+            {
+                Reqmap[client_fd].request = "";
+                Reqmap[client_fd].cgi_state = 0;
+                Reqmap[client_fd].data.clear();
+                this->poll_fds[pos].events = POLLIN;
+                return;
+            }
+            else
+            {
+                sendError(client_fd, "500 Internal Server Error", pos);
+                return;
+            }
+        }
         else
             Reqmap[client_fd].cgi_state = 0;
-        Reqmap[client_fd].setFilePath(FilePath);
         this->poll_fds[pos].events = POLLOUT;
     }
 }
@@ -817,34 +840,34 @@ void Server::serveFile(int client_fd, const std::string& file_path, size_t pos) 
     }
     std::string file_content;
     file.close();
-    if(Reqmap[client_fd].cgi_state == 1)
-    {
-            file_content = init_cgi_param(file_path, Reqmap[client_fd]);
-            if(file_content.size() == 0)
-            {
-                Reqmap[client_fd].request = "";
-                Reqmap[client_fd].cgi_state = 0;
-                Reqmap[client_fd].data.clear();
-                this->poll_fds[pos].events = POLLIN;
-                return;
-            }
-            else
-            {
-                sendError(client_fd, "500 Internal Server Error", pos);
-                return;
-            }
+    // if(Reqmap[client_fd].cgi_state == 1)
+    // {
+    //         file_content = init_cgi_param(file_path, Reqmap[client_fd]);
+    //         if(file_content.size() == 0)
+    //         {
+    //             Reqmap[client_fd].request = "";
+    //             Reqmap[client_fd].cgi_state = 0;
+    //             Reqmap[client_fd].data.clear();
+    //             this->poll_fds[pos].events = POLLIN;
+    //             return;
+    //         }
+    //         else
+    //         {
+    //             sendError(client_fd, "500 Internal Server Error", pos);
+    //             return;
+    //         }
+    // }
+    //else
+    //{
+    std::ifstream file2(real_file_path);
+    if (!file2.is_open()) {
+        std::cerr << "Error: Unable to open HTML file." << std::endl;
+        return;
     }
-    else
-    {
-        std::ifstream file(real_file_path);
-        if (!file.is_open()) {
-            std::cerr << "Error: Unable to open HTML file." << std::endl;
-            return;
-        }
-        file_content.assign((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        file.close();
+    file_content.assign((std::istreambuf_iterator<char>(file2)), std::istreambuf_iterator<char>());
+    file.close();
 
-    }
+   // }
     std::string content_type = Reqmap[client_fd].cgi_state ? "text/html; charset=UTF-8" : getContentType(real_file_path);
     std::string http_code = Reqmap[client_fd].http_code;
     if(http_code == "501 Not Implemented")

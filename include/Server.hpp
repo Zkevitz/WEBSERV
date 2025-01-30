@@ -61,6 +61,7 @@ private:
     bool makeNonBlocking();
     void acceptConnections();
     void add_client_to_poll(int client_fd);
+   void sendCgiResponse(int client_fd, int pos);
     void initializePollFds();
     std::string read_cgi_output(int client_fd, size_t i);
     std::string init_cgi_param(std::string str, Request& Req);
